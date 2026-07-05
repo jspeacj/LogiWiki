@@ -1,0 +1,69 @@
+# This is NOT the Next.js you know
+
+This version (Next 16) has breaking changes — APIs, conventions, and file structure may differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing code. Notable: `middleware` → **`proxy.ts`**, `after()` from `next/server`, async `params`/`searchParams` (Promises), `useActionState`.
+
+---
+
+# LogiWiki — zone 규칙 (`/wiki`)
+
+이 repo는 LogikitApps 멀티존(Next.js Multi-Zones)의 한 zone이다. **AI 초안 + 사람 검수**로 만드는 IT 학습 서적·퀴즈 플랫폼(위키독스 스타일, AI 생성).
+
+- **zone 슬러그**: `/wiki`
+- **최종 정본(canonical) 주소**: `https://logikitapps.com/wiki`
+- **임시 운영 주소**: `https://<this>.vercel.app/wiki` (AdSense 승인 전까지 **noindex**)
+- **구 서브도메인(선택)**: `wiki.logikitapps.com` → 승인 후 308로 `/wiki` 리다이렉트
+- **별도 repo + 별도 Vercel + 별도 Supabase**다. 메인(LogikitApps)은 승인 전까지 건드리지 않는다.
+
+> **단일 출처(SSOT)**: 멀티존 전체 맥락·인프라는 메인 repo `C:\VSCode\LogikitApps\MIGRATION.md`가 정본. 충돌 시 그쪽을 따른다.
+
+## 🚨 AdSense 정책: AI 대량 생성 = 최대 리스크
+
+이 플랫폼의 핵심은 AI 생성 서적이지만, **사람 검수 없는 대량 AI 페이지**는 Google의 **"대규모 콘텐츠 남용(scaled content abuse)"** 정책에 걸려 AdSense 거절·색인 제외·트래픽 급락 사유가 된다. 메인 도메인이 심사 중이므로 승인 후 `/wiki` 연결 시 메인 전체가 위험해질 수 있다.
+
+**불변 규칙 — 어떤 AI 콘텐츠도 사람 승인 없이 발행·색인되지 않는다. 3중 강제:**
+1. **DB**: `enforce_book_publish` 트리거(AI 소스는 `is_admin()` 만 발행), RLS(비회원엔 published 만).
+2. **렌더**: `sitemap.ts` 는 `status='published' AND published_at IS NOT NULL` 만 등록. 비발행은 `robots:{index:false}`.
+3. **파이프라인**: AI 생성은 job 큐 + 일일 캡, 결과는 항상 `status='draft'` → 관리자 검수·보강 후 발행.
+
+AI 프롬프트는 "교과서 품질(학습목표→개념→실행가능 예제→함정→요약→연습), 문서 복붙 금지, 버전 특이사항 명시" 로 E-E-A-T 를 확보한다.
+
+## basePath 4규칙 (새 코드 작성 시 필수)
+
+basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다. 아래는 **수동으로 `/wiki` 접두어** 필요:
+
+1. **정적 자산**(public): `/wiki/img/x.png` (raw `<img>` + `next/image` src 포함)
+2. **클라이언트 `fetch('/api/...')`**: `/wiki/api/...` (브라우저 fetch는 basePath 미적용)
+3. **raw `<a href="/내부">`**: `/wiki/...` (또는 `<Link>`/`router.push()` — 자동 적용)
+4. **새 페이지 SEO**: per-page `alternates.canonical: canonical('경로')`, 공개면 `sitemap.ts`에 등록 / 비공개면 `robots:{index:false}`
+
+## SEO 기본 설정 (`lib/site.ts`)
+
+- `metadataBase = https://logikitapps.com` (**origin**. 경로 넣으면 canonical 이 origin 루트로 떨어짐)
+- 페이지별 `alternates.canonical: canonical('/wiki/...')`
+- `NOINDEX = process.env.NEXT_PUBLIC_NOINDEX !== "false"` (기본 noindex). 승인 후 env 로 해제.
+- `robots.ts`/`sitemap.ts`: NOINDEX 게이트.
+
+## 보안: 3중 방어 + denormalized 카운터
+
+- 모든 쓰기는 **클라 검증 + 서버 액션(Zod) + DB(RLS/트리거/제약)** 3중.
+- `books.view_count`/`recommend_count` 는 **트리거/RPC 전용** — 서버 액션 허용 필드에서 제외(변조 방지).
+- 추천 sync 트리거·view RPC 는 `security definer`(RLS 우회 필요).
+- 퀴즈 정답/해설은 채점 전 클라 도달 금지(공개 serve 경로에서 컬럼 제외).
+- cron/AI 는 service-role 클라(유저세션 없음). `ANTHROPIC_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY` 는 절대 `NEXT_PUBLIC_` 아님.
+- **Admin SSOT**: `lib/auth/admin.ts::ADMIN_EMAIL` == DB `public.is_admin()` 이메일. 반드시 동기화.
+
+## 마이그레이션 (신선한 DB, 의존성 순서로 SQL Editor 에 수동 실행)
+
+`supabase/migrations/NNNN_*.sql` — 멱등(`if not exists`/`create or replace`/`drop ... if exists`).
+- `0001_profiles` — profiles·is_admin·handle_new_user·닉네임 규칙 (Phase 1, 서적이 의존)
+- `0002_books` — books·chapters·발행 트리거·조회수 RPC·레이트리밋 (Phase 1)
+- `0003_community` 이후 — 게시판·댓글·추천·랭킹·퀴즈·AI 파이프라인 (Phase 2~3)
+
+## next.config — basePath + 구 서브도메인 308
+
+`basePath: '/wiki'`, `experimental.serverActions.allowedOrigins: ['logikitapps.com','wiki.logikitapps.com']`, `wiki.logikitapps.com` host 308 리다이렉트(도메인 할당 전 자연 비활성).
+
+## 로컬 개발
+
+basePath 때문에 `npm run dev` 후 **`http://localhost:3000/wiki`** 로 접속(루트 `/`는 404).
+Supabase env 미설정이어도 앱은 로그아웃·빈 상태로 뜬다(인증/쿼리 계층이 우아하게 degrade).
