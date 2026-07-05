@@ -80,3 +80,30 @@ $md$, 3000);
 
   raise notice 'LogiWiki seed: 데모 서적 생성 완료.';
 end $$;
+
+-- ── 데모 퀴즈(react) — 0006_quizzes.sql 실행 후 동작. 프로필 불필요(service role). ──
+do $$
+begin
+  if exists (select 1 from public.quizzes where topic = 'react' and prompt like 'useState%') then
+    raise notice 'LogiWiki seed: 퀴즈 이미 존재.';
+    return;
+  end if;
+
+  insert into public.quizzes (type, topic, difficulty, language, prompt, choices, answer, explanation, source, status) values
+  ('mcq', 'react', 'easy', 'ko',
+   'useState 가 반환하는 것은 무엇인가요?',
+   '[{"key":"a","text":"상태 값 하나"},{"key":"b","text":"[상태 값, 갱신 함수] 배열"},{"key":"c","text":"갱신 함수 하나"},{"key":"d","text":"객체 { value, set }"}]'::jsonb,
+   'b', 'useState 는 [현재 상태, 상태를 갱신하는 setter 함수] 형태의 배열을 반환합니다.', 'ai', 'published'),
+  ('short', 'react', 'medium', 'ko',
+   'useEffect 의 의존성 배열을 빈 배열([])로 두면 언제 실행되나요?',
+   null,
+   '컴포넌트가 마운트될 때 한 번만 실행됩니다.',
+   '의존성이 없으므로 최초 렌더(마운트) 후 1회만 실행되고, 언마운트 시 정리함수가 호출됩니다.', 'ai', 'published'),
+  ('fill_code', 'react', 'medium', 'ko',
+   '카운터를 1 증가시키는 코드의 빈칸을 채우세요.',
+   'setCount(___);',
+   'count + 1',
+   '이전 값 기반이면 함수형 업데이트 setCount(c => c + 1) 이 더 안전합니다.', 'ai', 'published');
+
+  raise notice 'LogiWiki seed: 데모 퀴즈 생성 완료.';
+end $$;

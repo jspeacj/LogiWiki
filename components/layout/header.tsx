@@ -34,8 +34,20 @@ export function Header() {
             서적
           </Link>
           <Link
-            href="/community"
+            href="/rankings/week"
+            className="hidden rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground sm:inline-flex"
+          >
+            랭킹
+          </Link>
+          <Link
+            href="/quiz"
             className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground"
+          >
+            퀴즈
+          </Link>
+          <Link
+            href="/community"
+            className="hidden rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground sm:inline-flex"
           >
             자유게시판
           </Link>

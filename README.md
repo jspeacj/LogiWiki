@@ -29,6 +29,12 @@ basePath 때문에 **http://localhost:3000/wiki** 로 접속 (루트 `/` 는 404
 - 자세한 규칙은 [`AGENTS.md`](./AGENTS.md).
 
 ## 진행 상황
-- ✅ Phase 1 — 골격 · 서적 열람 · SEO · 테마 (0001~0002 마이그레이션)
-- ⏳ Phase 2 — 인증 · 자유게시판 · 서적 댓글 · 추천
-- ⏳ Phase 3 — 랭킹 · 퀴즈 · AI 생성 파이프라인
+- ✅ Phase 1 — 골격 · 서적 열람 · SEO · 테마 (0001_profiles · 0002_books)
+- ✅ Phase 2 — 인증 · 자유게시판 · 서적 댓글 · 추천 (0003_community · 0004_recommendations)
+- ✅ Phase 3 — 랭킹 · 퀴즈 · AI 생성 파이프라인 (0005_views_rankings · 0006_quizzes · 0007_ai_pipeline)
+
+### AI 파이프라인 사용 흐름
+1. 관리자(Google 로그인)가 `/wiki/admin` 에서 토픽·소주제로 **AI 초안 생성 요청**(일일 5건 캡).
+2. Vercel Cron `/wiki/api/ai/generate`(6시간마다)가 큐를 drain → Claude(haiku)로 서적 초안 생성 → `status='draft'`.
+3. 관리자가 `/wiki/admin` 에서 초안을 **미리보기·검수 후 승인** → `published`(트리거가 `published_at` 설정) → sitemap 색인.
+   반려 시 `archived`. **어떤 AI 콘텐츠도 승인 없이 발행·색인되지 않음.**
