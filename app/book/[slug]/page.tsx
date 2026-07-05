@@ -3,9 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug } from "@/lib/wiki/queries";
+import { getBookComments, hasRecommended } from "@/lib/wiki/social";
 import { topicLabel } from "@/lib/wiki/topics";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
+import { RecommendButton } from "@/components/wiki/recommend-button";
+import { BookComments } from "@/components/wiki/book-comments";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +49,11 @@ export default async function BookLandingPage({
 
   const firstChapter = flattenChapters(book.chapters)[0];
   const isPublished = book.status === "published";
+
+  // 추천/댓글은 발행된 서적에서만(RLS 도 동일 강제).
+  const [comments, recommended] = isPublished
+    ? await Promise.all([getBookComments(book.id), hasRecommended(book.id)])
+    : [[], false];
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-10">
@@ -101,21 +109,35 @@ export default async function BookLandingPage({
           </span>
         </div>
 
-        {firstChapter && (
-          <Link
-            href={`/book/${book.slug}/${firstChapter.slug}`}
-            className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-brand to-brand-2 px-5 py-2.5 text-sm font-medium text-white transition-[filter] hover:brightness-110"
-          >
-            <BookOpen className="size-4" strokeWidth={2.2} />
-            학습 시작
-          </Link>
-        )}
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          {firstChapter && (
+            <Link
+              href={`/book/${book.slug}/${firstChapter.slug}`}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-brand to-brand-2 px-5 py-2.5 text-sm font-medium text-white transition-[filter] hover:brightness-110"
+            >
+              <BookOpen className="size-4" strokeWidth={2.2} />
+              학습 시작
+            </Link>
+          )}
+          {isPublished && (
+            <RecommendButton
+              bookId={book.id}
+              slug={book.slug}
+              initialCount={book.recommend_count}
+              initialRecommended={recommended}
+            />
+          )}
+        </div>
       </header>
 
       <section className="py-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">목차</h2>
         <BookToc slug={book.slug} chapters={book.chapters} />
       </section>
+
+      {isPublished && (
+        <BookComments bookId={book.id} slug={book.slug} comments={comments} />
+      )}
     </div>
   );
 }
