@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { claude } from "./claude";
+import { slugify } from "@/lib/slug";
 
 /**
  * AI 서적 초안 생성(2단계). 결과는 항상 status='draft' → 관리자 검수 후 발행.
@@ -52,18 +53,6 @@ const CHAPTER_SYSTEM = `당신은 시니어 엔지니어이자 기술 서적 저
 원칙: 문서를 그대로 복붙하지 말고 개념을 자신의 말로 설명. 버전 특이사항 명시. 최소 400자 이상, 코드 예제 1개 이상.
 출력은 마크다운 본문만(제목 h1 은 넣지 말 것 — 시스템이 챕터 제목을 별도로 표시함).`;
 
-function slugify(input: string): string {
-  return (
-    input
-      .toLowerCase()
-      .replace(/[^a-z0-9가-힣\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 80) || "untitled"
-  );
-}
-
 /** job 을 받아 초안 서적+챕터를 생성하고 book id 를 반환. */
 export async function generateBookDraft(
   supabase: SupabaseClient,
@@ -93,7 +82,8 @@ export async function generateBookDraft(
     maxTokens: 4096,
   });
 
-  const baseSlug = slugify(outline.title || job.subtopic);
+  // 한글 제목이면 남는 ASCII 가 없으므로 토픽을 fallback 으로.
+  const baseSlug = slugify(outline.title || job.subtopic, job.topic);
   const slug = `${baseSlug}-${job.id.slice(0, 6)}`;
 
   const { data: book, error: bookErr } = await supabase
@@ -122,7 +112,7 @@ export async function generateBookDraft(
   const used = new Set<string>();
   for (let i = 0; i < chapters.length; i++) {
     const ch = chapters[i];
-    let slug = slugify(ch.slug || ch.title) || `chapter-${i + 1}`;
+    let slug = slugify(ch.slug || ch.title, `chapter-${i + 1}`);
     if (used.has(slug)) slug = `${slug}-${i + 1}`.slice(0, 120);
     used.add(slug);
 

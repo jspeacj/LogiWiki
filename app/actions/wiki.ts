@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { topicExists } from "@/lib/wiki/topics-db";
+import { shortSuffix, slugify } from "@/lib/slug";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 
 export type WikiActionState = {
@@ -24,18 +25,6 @@ async function requireUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return user ? { supabase, user } : null;
-}
-
-function slugify(input: string): string {
-  return (
-    input
-      .toLowerCase()
-      .replace(/[^a-z0-9가-힣\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .replace(/-+/g, "-")
-      .slice(0, 80) || "untitled"
-  );
 }
 
 const BookSchema = z.object({
@@ -63,7 +52,8 @@ export async function createBook(
   // 토픽은 DB(public.topics)가 원천. FK 가 최종 방어선이지만 여기서 명확한 에러를 준다.
   if (!(await topicExists(parsed.data.topic))) return { error: "VALIDATION" };
 
-  const slug = `${slugify(parsed.data.title)}-${Math.random().toString(36).slice(2, 8)}`;
+  // 제목이 한글이면 남는 ASCII 가 없을 수 있다 → 토픽을 fallback 으로 쓴다.
+  const slug = `${slugify(parsed.data.title, parsed.data.topic)}-${shortSuffix()}`;
   const { data, error } = await session.supabase
     .from("books")
     .insert({
@@ -152,10 +142,16 @@ export async function upsertChapter(
   });
   if (!parsed.success) return { error: "VALIDATION" };
 
+  // 챕터 slug 도 ASCII 만 — 한글이면 chapter-{순서} 로 폴백한다.
+  const chapterSlug = slugify(
+    parsed.data.slug,
+    `chapter-${Math.round(parsed.data.sortOrder / 1000) || 1}`,
+  );
+
   const { error } = await session.supabase.from("chapters").upsert(
     {
       book_id: parsed.data.bookId,
-      slug: slugify(parsed.data.slug),
+      slug: chapterSlug,
       title: parsed.data.title,
       body: parsed.data.body,
       sort_order: parsed.data.sortOrder,
@@ -167,7 +163,7 @@ export async function upsertChapter(
   revalidatePath(`/admin/books/${parsed.data.bookId}`);
   const slug = String(formData.get("bookSlug") ?? "");
   if (slug) revalidatePath(`/book/${slug}`, "layout");
-  return { ok: true, slug: slugify(parsed.data.slug) };
+  return { ok: true, slug: chapterSlug };
 }
 
 /** 챕터 삭제(저자/관리자). */

@@ -64,6 +64,7 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - `0009_views_fix` — 조회수 일별 롤업 RPC 재적용 + `top_books` security definer + `book_view_daily` 쓰기 차단 (**필수**)
 - `0010_rankings_sort` — `top_books` 에 `p_sort`(종합/조회수/추천수) 추가. 3인자 구버전은 DROP(오버로드 모호성 방지)
 - `0011_dynamic_topics` — **토픽을 DB 로 이전**(`public.topics`) + AI 자동 생성 설정(`ai_settings`) (**필수**)
+- `0012_ascii_slugs` — slug 를 ASCII 로 강제(기존 한글 slug 정규화 + CHECK 제약) (**필수**)
 
 ## 토픽 SSOT = DB (`public.topics`)
 

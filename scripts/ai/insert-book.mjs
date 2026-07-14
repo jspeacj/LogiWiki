@@ -49,6 +49,12 @@ const need = (cond, msg) => {
 };
 
 need(typeof book.topic_slug === "string" && SLUG_RE.test(book.topic_slug), "topic_slug 형식 오류");
+// slug 는 반드시 ASCII 여야 한다. 한글 slug 를 쓰면 PostgREST 필터가 실패해
+// (`?slug=eq.한글` → Something went wrong) 서적 페이지가 통째로 404 가 된다.
+need(
+  typeof book.slug === "string" && /^[a-z0-9][a-z0-9-]{2,59}$/.test(book.slug),
+  "slug 는 영문 소문자·숫자·하이픈만(3~60자). 한글 slug 는 조회가 깨진다",
+);
 need(typeof book.title === "string" && book.title.trim().length >= 2, "title 누락");
 need(typeof book.description === "string" && book.description.trim().length >= 10, "description 누락");
 need(Array.isArray(book.chapters) && book.chapters.length >= 3, "chapters 가 3개 미만");
@@ -96,14 +102,8 @@ if (!existingTopic) {
 }
 
 // ── 4) 서적 — 항상 draft ─────────────────────────────────────────────────────
-const slugBase = String(book.slug ?? book.title)
-  .toLowerCase()
-  .replace(/[^a-z0-9가-힣\s-]/g, "")
-  .trim()
-  .replace(/\s+/g, "-")
-  .replace(/-+/g, "-")
-  .slice(0, 60) || "untitled";
-const bookSlug = `${slugBase}-${Date.now().toString(36).slice(-5)}`;
+// slug 는 위에서 ASCII 로 검증됐다. 중복 방지용 접미사만 붙인다.
+const bookSlug = `${book.slug}-${Date.now().toString(36).slice(-5)}`;
 
 const { data: created, error: bookErr } = await supabase
   .from("books")
