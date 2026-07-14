@@ -1,7 +1,10 @@
 import "server-only";
 
 import { cache } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRef } from "@/lib/auth/types";
 import type {
@@ -274,9 +277,22 @@ export async function getPublishedSitemapUrls(): Promise<
   return urls;
 }
 
-/** 조회수 기록(RPC). 렌더 경로 밖에서 after() 로 fire-and-forget 호출. */
+/**
+ * 조회수 기록(RPC). 렌더 경로 밖에서 after() 로 fire-and-forget 호출.
+ *
+ * ⚠️ 쿠키 기반 클라이언트(getClient)를 쓰지 않는다. after() 콜백은 응답이 나간 뒤에
+ * 실행되는데, 그 시점에 `cookies()` 접근이 실패하면 예외가 조용히 삼켜져 조회수가
+ * 영영 오르지 않는다(실제로 그렇게 깨져 있었다). record_book_view 는 security definer
+ * 공개 RPC 라 세션이 필요 없으므로, 쿠키 없는 순수 anon 클라이언트로 호출한다.
+ */
 export async function recordBookView(bookId: string): Promise<void> {
-  const supabase = await getClient();
-  if (!supabase) return;
-  await supabase.rpc("record_book_view", { p_book_id: bookId });
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return;
+
+  const supabase = createSupabaseClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await supabase.rpc("record_book_view", { p_book_id: bookId });
+  logQueryError("recordBookView", error);
 }
