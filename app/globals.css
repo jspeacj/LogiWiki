@@ -287,6 +287,59 @@ body {
   font-size: 0.88rem;
   line-height: 1.7;
   tab-size: 2;
+  /* 복사 버튼·언어 라벨을 얹기 위한 기준점. */
+  position: relative;
+}
+
+/* ── 코드블록: 언어 라벨 + 복사 버튼 ─────────────────────────────────────────
+   data-lang 은 lib/wiki/markdown.ts 의 highlight() 가 붙인다(shiki 는 안 붙여준다).
+   sanitize-html 의 allowedAttributes.pre 에도 등록돼 있어야 살아남는다. */
+.book-prose pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.5rem;
+  right: 4.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.book-prose pre .code-copy-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid rgb(var(--border) / 0.16);
+  background: rgb(var(--card) / 0.06);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+  /* 평소엔 눈에 띄지 않다가, 코드에 다가가면 드러난다. 터치 기기에선 항상 보인다. */
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.book-prose pre:hover .code-copy-btn,
+.book-prose pre:focus-within .code-copy-btn {
+  opacity: 1;
+}
+.book-prose pre .code-copy-btn:hover {
+  color: var(--foreground);
+  border-color: rgb(var(--border) / 0.32);
+}
+.book-prose pre .code-copy-btn[data-copied="true"] {
+  color: var(--accent-emerald);
+  border-color: var(--accent-emerald);
+}
+/* 마우스가 없는 기기(터치)에서는 hover 가 없으므로 항상 보이게 한다. */
+@media (hover: none) {
+  .book-prose pre .code-copy-btn {
+    opacity: 1;
+  }
 }
 .book-prose pre code {
   font-family: var(--font-mono);

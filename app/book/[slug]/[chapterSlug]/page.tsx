@@ -4,12 +4,14 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { ArrowLeft, ArrowRight, BadgeCheck, ChevronLeft, Clock, User } from "lucide-react";
 import { getBookBySlug, getChapter, recordBookView } from "@/lib/wiki/queries";
-import { renderMarkdown } from "@/lib/wiki/markdown";
+import { extractHeadings, renderMarkdown } from "@/lib/wiki/markdown";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
 import { formatDateTime } from "@/lib/community/format";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { Mermaid } from "@/components/wiki/mermaid";
+import { CodeCopy } from "@/components/wiki/code-copy";
+import { PageToc } from "@/components/wiki/page-toc";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,9 @@ export default async function ChapterPage({
   // mermaid 는 무겁다. 다이어그램이 실제로 있는 챕터에서만 렌더러를 붙인다
   // (없는 페이지는 mermaid 번들을 한 바이트도 받지 않는다).
   const hasDiagram = html.includes('class="mermaid"');
+  // data-lang 이 <pre 와 class 사이에 끼어들 수 있으므로 class 만 본다.
+  const hasCode = html.includes('class="shiki');
+  const headings = extractHeadings(html);
 
   const flat = flattenChapters(book.chapters);
   const idx = flat.findIndex((c) => c.slug === chapter.slug);
@@ -83,7 +88,8 @@ export default async function ChapterPage({
     <div className="mx-auto max-w-6xl px-5 py-10">
       {isPublished && <ChapterJsonLd book={book} chapter={chapter} />}
 
-      <div className="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-10">
+      {/* xl 부터 우측에 "이 페이지에서"(챕터 내 절 목차) 레일을 하나 더 연다. */}
+      <div className="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-10 xl:grid-cols-[16rem_1fr_14rem]">
         {/*
           사이드바 목차.
           모바일에서는 접어 둔다 — aside 가 DOM 상 article 보다 먼저 오고 그리드는 lg: 부터라,
@@ -175,6 +181,7 @@ export default async function ChapterPage({
                 dangerouslySetInnerHTML={{ __html: html }}
               />
               {hasDiagram && <Mermaid />}
+              {hasCode && <CodeCopy />}
             </>
           ) : (
             <p className="text-muted">이 챕터에는 아직 내용이 없습니다.</p>
@@ -223,6 +230,13 @@ export default async function ChapterPage({
             )}
           </nav>
         </article>
+
+        {/* 챕터 내 절 목차. 넓은 화면에서만 — 좁은 화면에선 좌측 목차와 경쟁한다. */}
+        <aside className="hidden xl:block">
+          <div className="sticky top-20 max-h-[70vh] overflow-y-auto">
+            <PageToc headings={headings} />
+          </div>
+        </aside>
       </div>
     </div>
   );

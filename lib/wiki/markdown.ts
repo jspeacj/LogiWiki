@@ -41,11 +41,20 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
     a: ["href", "title", "target", "rel"],
     img: ["src", "alt", "title"],
     // shiki 는 <pre class="shiki ..." style="..." tabindex="0"> 와 색상 span 을 만든다.
-    pre: ["class", "style", "tabindex"],
+    // data-lang 은 우리가 붙인다(코드블록 언어 라벨 + 복사 버튼용).
+    pre: ["class", "style", "tabindex", "data-lang"],
     code: ["class", "style"],
     span: ["class", "style"],
     th: ["align"],
     td: ["align"],
+    // ⚠️ 제목 id 를 여기 넣지 않으면 새니타이저가 조용히 지운다 —
+    //    앵커 링크도, 우측 목차도, globals.css 의 scroll-margin-top 도 전부 죽는다.
+    h1: ["id"],
+    h2: ["id"],
+    h3: ["id"],
+    h4: ["id"],
+    h5: ["id"],
+    h6: ["id"],
   },
   allowedStyles: ALLOWED_STYLES,
   allowedSchemes: ["http", "https", "mailto", "tel"],
@@ -90,12 +99,61 @@ const LANG_ALIASES: Record<string, string> = {
 
 async function highlight(code: string, rawLang: string): Promise<string> {
   const lang = LANG_ALIASES[rawLang] ?? rawLang ?? "text";
+  let html: string;
   try {
-    return await codeToHtml(code, { lang: lang || "text", theme: "github-dark" });
+    html = await codeToHtml(code, { lang: lang || "text", theme: "github-dark" });
   } catch {
     // 미등록/오탈자 언어는 일반 텍스트로 폴백(throw 방지).
-    return await codeToHtml(code, { lang: "text", theme: "github-dark" });
+    html = await codeToHtml(code, { lang: "text", theme: "github-dark" });
   }
+  // 언어 라벨(::before)과 복사 버튼이 쓸 표식. shiki 는 이 속성을 붙여주지 않는다.
+  const label = lang && lang !== "text" ? lang : "";
+  return label ? html.replace("<pre", `<pre data-lang="${escapeHtml(label)}"`) : html;
+}
+
+/**
+ * 제목 → 앵커 id. 한글을 그대로 남긴다(id/URL 프래그먼트에 유효하다).
+ *
+ * 공백은 하이픈으로, id·URL 에서 문제를 일으키는 문자만 턴다. 같은 제목이 여러 번
+ * 나오면 -2, -3 을 붙여 유일하게 만든다(중복 id 는 앵커를 깨뜨린다).
+ */
+function headingId(text: string, used: Map<string, number>): string {
+  const base =
+    text
+      .trim()
+      .toLowerCase()
+      .replace(/<[^>]+>/g, "") // 인라인 마크업(code/strong 등) 제거
+      .replace(/[\s]+/g, "-")
+      .replace(/["'`<>&#?/\\%:.,()[\]{}!]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "section";
+
+  const n = used.get(base) ?? 0;
+  used.set(base, n + 1);
+  return n === 0 ? base : `${base}-${n + 1}`;
+}
+
+export interface TocHeading {
+  id: string;
+  text: string;
+  level: number;
+}
+
+/**
+ * 렌더된 HTML 에서 h2/h3 를 뽑아 페이지 내 목차를 만든다.
+ *
+ * 정규식으로 파싱해도 안전한 이유: 이 HTML 은 우리가 방금 만들었고(marked → sanitize),
+ * 제목 태그의 형태가 고정돼 있다. 임의의 외부 HTML 을 파싱하는 게 아니다.
+ */
+export function extractHeadings(html: string): TocHeading[] {
+  const out: TocHeading[] = [];
+  const re = /<h([23]) id="([^"]+)">([\s\S]*?)<\/h\1>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const text = m[3].replace(/<[^>]+>/g, "").trim();
+    if (text) out.push({ level: Number(m[1]), id: m[2], text });
+  }
+  return out;
 }
 
 /**
@@ -184,6 +242,9 @@ async function renderMarkdownUnsafe(markdown: string): Promise<string> {
   if (!markdown?.trim()) return "";
 
   const marked = new Marked({ gfm: true });
+  // 챕터 안에서 제목 id 가 겹치지 않도록 렌더 1회당 하나의 카운터를 공유한다.
+  const usedIds = new Map<string, number>();
+
   marked.use({
     async: true,
     walkTokens: async (token) => {
@@ -203,6 +264,19 @@ async function renderMarkdownUnsafe(markdown: string): Promise<string> {
       code(token: Tokens.Code) {
         // walkTokens 에서 이미 shiki HTML 로 치환됨.
         return token.text;
+      },
+      /**
+       * 제목에 앵커 id 를 붙인다. 없으면 섹션 링크도 우측 목차도 만들 수 없다
+       * (globals.css 의 scroll-margin-top 도 그동안 죽은 코드였다).
+       *
+       * h1 은 h2 로 낮춘다 — 챕터 제목이 이미 페이지의 h1 이므로, 본문의 h1 은
+       * 문서 아웃라인에 h1 이 둘 생기게 만든다(SEO·스크린리더 모두에 나쁘다).
+       */
+      heading(token: Tokens.Heading) {
+        const text = this.parser.parseInline(token.tokens);
+        const level = Math.min(token.depth + (token.depth === 1 ? 1 : 0), 6);
+        const id = headingId(text, usedIds);
+        return `<h${level} id="${id}">${text}</h${level}>\n`;
       },
     },
   });
