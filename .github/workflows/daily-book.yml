@@ -27,6 +27,10 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      # claude-code-action 은 GitHub OIDC 토큰을 발급받아 인증을 교환한다.
+      # 이 권한이 없으면 러너에 ACTIONS_ID_TOKEN_REQUEST_URL 이 주입되지 않아
+      # "Could not fetch an OIDC token" 으로 실패한다.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
