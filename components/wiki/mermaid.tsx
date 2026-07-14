@@ -47,8 +47,16 @@ export function Mermaid() {
 
         await mermaid.run({ nodes: Array.from(nodes) });
       } catch (e) {
-        // 다이어그램 문법이 틀렸어도 페이지는 살아 있어야 한다 → 원문(코드)이 그대로 보인다.
+        // 다이어그램 문법이 틀렸어도 페이지는 살아 있어야 한다 → 원문(코드)을 보여준다.
+        //
+        // ⚠️ 예전엔 여기서 로그만 찍었는데, CSS 가 렌더 전 FOUC 를 막으려고
+        //    `color: transparent; font-size: 0` 을 걸어두기 때문에 **원문도 같이 숨겨졌다.**
+        //    AI 가 만든 다이어그램에 문법 오류가 하나 나면 빈 6rem 상자만 남고 내용이
+        //    영영 사라진다. 실패를 CSS 에 알려 원문을 드러낸다.
         console.error("[mermaid] 렌더 실패 — 원문을 그대로 표시합니다", e);
+        nodes.forEach((node) => {
+          if (node.dataset.processed !== "true") node.dataset.processed = "failed";
+        });
       }
     })();
 

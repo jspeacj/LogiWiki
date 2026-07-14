@@ -107,9 +107,19 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <div className="relative flex min-h-dvh flex-col">
+              {/* 본문 바로가기 — 모바일 챕터 페이지는 목차가 본문보다 먼저 오므로,
+                  키보드/스크린리더 사용자가 링크 20개를 지나야 본문에 닿았다. */}
+              <a
+                href="#content"
+                className="sr-only rounded-full bg-brand px-4 py-2 text-sm font-medium text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50"
+              >
+                본문 바로가기
+              </a>
               <div className="pointer-events-none fixed inset-0 -z-10 bg-grid" aria-hidden />
               <Header />
-              <main className="flex-1">{children}</main>
+              <main id="content" className="flex-1">
+                {children}
+              </main>
               <Footer />
             </div>
           </AuthProvider>

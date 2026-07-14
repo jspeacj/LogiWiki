@@ -2,14 +2,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { ArrowLeft, ArrowRight, ChevronLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight, BadgeCheck, ChevronLeft, Clock, User } from "lucide-react";
 import { getBookBySlug, getChapter, recordBookView } from "@/lib/wiki/queries";
 import { renderMarkdown } from "@/lib/wiki/markdown";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
+import { EDITOR_NAME } from "@/lib/editorial";
+import { formatDateTime } from "@/lib/community/format";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { Mermaid } from "@/components/wiki/mermaid";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * 한글 기준 읽기 시간(분). 코드블록은 훑어 읽으므로 분리해서 낮은 가중치를 준다.
+ * 한글 산문 ≈ 500자/분, 코드 ≈ 900자/분.
+ */
+function readingMinutes(body: string): number {
+  const code = (body.match(/```[\s\S]*?```/g) ?? []).join("");
+  const prose = body.replace(/```[\s\S]*?```/g, "");
+  return Math.max(1, Math.round(prose.length / 500 + code.length / 900));
+}
 
 type Params = { slug: string; chapterSlug: string };
 
@@ -72,8 +84,13 @@ export default async function ChapterPage({
       {isPublished && <ChapterJsonLd book={book} chapter={chapter} />}
 
       <div className="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-10">
-        {/* 사이드바 목차 */}
-        <aside className="mb-8 lg:mb-0">
+        {/*
+          사이드바 목차.
+          모바일에서는 접어 둔다 — aside 가 DOM 상 article 보다 먼저 오고 그리드는 lg: 부터라,
+          폰에서 챕터를 열 때마다 목차 10여 개를 지나야 본문이 나왔다(LCP 도 접힘 아래로 밀림).
+          검색으로 유입되는 독자 대부분이 모바일이다.
+        */}
+        <aside className="mb-6 lg:mb-0">
           <div className="lg:sticky lg:top-20">
             <Link
               href={`/book/${book.slug}`}
@@ -82,7 +99,19 @@ export default async function ChapterPage({
               <ChevronLeft className="size-4" />
               {book.title}
             </Link>
-            <div className="max-h-[70vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2">
+
+            {/* 모바일: 접힌 목차 */}
+            <details className="rounded-2xl border border-white/10 bg-white/[0.02] lg:hidden">
+              <summary className="cursor-pointer list-none px-4 py-3 text-sm text-muted-strong marker:hidden">
+                목차 · {idx + 1}/{flat.length}
+              </summary>
+              <div className="max-h-[60vh] overflow-y-auto border-t border-white/10 p-2">
+                <BookToc slug={book.slug} chapters={book.chapters} currentSlug={chapter.slug} />
+              </div>
+            </details>
+
+            {/* 데스크톱: 항상 펼침 */}
+            <div className="hidden max-h-[70vh] overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2 lg:block">
               <BookToc slug={book.slug} chapters={book.chapters} currentSlug={chapter.slug} />
             </div>
           </div>
@@ -102,14 +131,46 @@ export default async function ChapterPage({
             </Link>
           </nav>
 
-          <h1 className="mb-6 text-3xl font-bold leading-tight tracking-tight">
+          <h1 className="text-3xl font-bold leading-tight tracking-tight">
             {chapter.title}
           </h1>
+
+          {/*
+            신뢰 신호(E-E-A-T). 챕터 페이지는 검색·AdSense 심사가 실제로 착지하는
+            표면인데, 저자·검수자·최종 수정일이 사람 눈에 보이는 자리엔 하나도 없었다
+            (JSON-LD 에만 있었다). 저자 없는 기술 문서 더미는 "대규모 콘텐츠 남용" 의
+            전형적 실루엣이다.
+          */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-white/10 pb-6 text-xs text-muted">
+            {book.author?.nickname && (
+              <span className="inline-flex items-center gap-1">
+                <User className="size-3.5" strokeWidth={2} />
+                {book.author.nickname}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 text-muted-strong">
+              <BadgeCheck className="size-3.5 text-brand-2" strokeWidth={2} />
+              검수 {EDITOR_NAME}
+            </span>
+            <span aria-hidden className="text-white/15">·</span>
+            <time dateTime={chapter.updated_at}>
+              최종 수정 {formatDateTime(chapter.updated_at)}
+            </time>
+            <span aria-hidden className="text-white/15">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3.5" strokeWidth={2} />약 {readingMinutes(chapter.body)}분
+            </span>
+            {idx >= 0 && (
+              <span className="ml-auto tabular-nums">
+                {idx + 1} / {flat.length}
+              </span>
+            )}
+          </div>
 
           {html ? (
             <>
               <div
-                className="book-prose"
+                className="book-prose mt-8"
                 // 본문은 renderMarkdown 에서 sanitize-html 로 새니타이즈됨.
                 dangerouslySetInnerHTML={{ __html: html }}
               />
@@ -118,6 +179,19 @@ export default async function ChapterPage({
           ) : (
             <p className="text-muted">이 챕터에는 아직 내용이 없습니다.</p>
           )}
+
+          {/*
+            오류 제보. /about 에서 "틀린 내용을 발견하면 알려달라" 고 약속해 놓고
+            정작 글 끝에는 연락 경로가 없었다. 사람이 관리한다는 가장 값싼 증거이기도 하다.
+          */}
+          <aside className="mt-12 rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 text-sm text-muted">
+            이 문서는 {EDITOR_NAME}의 검수를 거쳐 발행되었습니다. 틀린 내용이나 동작하지 않는
+            예제를 발견하셨다면{" "}
+            <Link href="/contact" className="text-brand-2 hover:underline">
+              알려주세요
+            </Link>
+            . 확인 후 수정합니다.
+          </aside>
 
           {/* 이전/다음 */}
           <nav className="mt-12 grid grid-cols-1 gap-3 border-t border-white/10 pt-6 sm:grid-cols-2">
