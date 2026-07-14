@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Eye, Sparkles, ThumbsUp, User } from "lucide-react";
+import { CalendarDays, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
 import type { BookListItem } from "@/lib/wiki/types";
 import { topicLabel } from "@/lib/wiki/topics";
+import { formatRelativeOrDate } from "@/lib/community/format";
 import { cn } from "@/lib/utils";
 
 /** 서적 카드 — 목록/그리드에서 재사용. Link → basePath(/wiki) 자동. */
@@ -32,18 +33,32 @@ export function BookCard({ book }: { book: BookListItem }) {
         </p>
       )}
 
-      <div className="mt-auto flex items-center gap-4 pt-1 text-xs text-muted">
+      {/* 발행일: 미발행이면 생성일로 폴백(관리자 미리보기). <time> 으로 기계 판독 가능하게. */}
+      <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1 text-xs text-muted">
         <span className="inline-flex items-center gap-1">
           <User className="size-3.5" strokeWidth={2} />
           {book.author?.nickname ?? "익명"}
         </span>
-        <span className="inline-flex items-center gap-1">
-          <Eye className="size-3.5" strokeWidth={2} />
-          {book.view_count.toLocaleString()}
+        <span aria-hidden className="text-white/15">
+          ·
         </span>
-        <span className="inline-flex items-center gap-1">
-          <ThumbsUp className="size-3.5" strokeWidth={2} />
-          {book.recommend_count.toLocaleString()}
+        <time
+          dateTime={book.published_at ?? book.created_at}
+          className="inline-flex items-center gap-1"
+        >
+          <CalendarDays className="size-3.5" strokeWidth={2} />
+          {formatRelativeOrDate(book.published_at ?? book.created_at)}
+        </time>
+
+        <span className="ml-auto inline-flex items-center gap-3">
+          <span className="inline-flex items-center gap-1">
+            <Eye className="size-3.5" strokeWidth={2} />
+            {book.view_count.toLocaleString()}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <ThumbsUp className="size-3.5" strokeWidth={2} />
+            {book.recommend_count.toLocaleString()}
+          </span>
         </span>
       </div>
     </Link>

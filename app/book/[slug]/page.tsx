@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { BookOpen, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
+import { BookOpen, CalendarDays, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
 import { getBookComments, hasRecommended } from "@/lib/wiki/social";
+import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
 import { topicLabel } from "@/lib/wiki/topics";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
@@ -104,6 +105,15 @@ export default async function BookLandingPage({
             <User className="size-4" strokeWidth={2} />
             {book.author?.nickname ?? "익명"}
           </span>
+          <time
+            dateTime={book.published_at ?? book.created_at}
+            title={formatDateTime(book.published_at ?? book.created_at)}
+            className="inline-flex items-center gap-1.5"
+          >
+            <CalendarDays className="size-4" strokeWidth={2} />
+            {isPublished ? "발행" : "작성"}{" "}
+            {formatRelativeOrDate(book.published_at ?? book.created_at)}
+          </time>
           <span className="inline-flex items-center gap-1.5">
             <Eye className="size-4" strokeWidth={2} />
             조회 {book.view_count.toLocaleString()}
