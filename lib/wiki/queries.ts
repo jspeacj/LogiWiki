@@ -1,5 +1,5 @@
 import "server-only";
-import { getReadClient } from "@/lib/supabase/read";
+import { getPublicClient, getReadClient } from "@/lib/supabase/read";
 
 import { cache } from "react";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -114,7 +114,9 @@ export async function listBooks(
   params: ListBooksParams = {},
 ): Promise<ListBooksResult> {
   const { topic, q, sort = "recent", page = 1, perPage = 24 } = params;
-  const supabase = await getReadClient();
+  // published 만 조회한다 → 세션이 필요 없다. 쿠키 클라이언트를 쓰면 cookies() 때문에
+  // 라우트가 dynamic 으로 떨어져 홈/목록의 `export const revalidate` 가 무시된다.
+  const supabase = getPublicClient();
   if (!supabase) return { items: [], total: 0, page, perPage };
 
   const from = (page - 1) * perPage;

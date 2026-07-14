@@ -1,5 +1,5 @@
 import "server-only";
-import { getReadClient } from "@/lib/supabase/read";
+import { getPublicClient, getReadClient } from "@/lib/supabase/read";
 import {
   DEFAULT_PAGE_SIZE,
   type Category,
@@ -147,11 +147,20 @@ export async function getComments(postId: string): Promise<CommentItem[]> {
   }));
 }
 
-/** 조회수 +1 (RPC). 실패해도 페이지 렌더는 막지 않는다. */
+/**
+ * 조회수 +1 (RPC). 실패해도 페이지 렌더는 막지 않는다.
+ *
+ * ⚠️ 반드시 **쿠키 없는** 클라이언트로 호출한다. 이 함수는 after() 안에서 불리는데,
+ * Next 16 은 Server Component 의 after() 콜백에서 cookies() 를 만지면 런타임 에러를
+ * 던진다 → 예외가 조용히 삼켜져 posts.view_count 가 영영 0 이었다.
+ * (서적 쪽에서 e1dae75 로 고친 것과 같은 버그. increment_post_views 는 security definer
+ *  공개 RPC 라 세션이 필요 없다.)
+ */
 export async function incrementViews(id: string): Promise<void> {
-  const supabase = await getReadClient();
+  const supabase = getPublicClient();
   if (!supabase) return;
-  await supabase.rpc("increment_post_views", { p_id: id });
+  const { error } = await supabase.rpc("increment_post_views", { p_id: id });
+  if (error) console.error("[incrementViews]", error.message);
 }
 
 // ── 임베드 응답 정규화 ───────────────────────────────────────────────────────
