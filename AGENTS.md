@@ -75,9 +75,28 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - 서버 액션의 토픽 검증은 `z.enum` 이 아니라 `topicExists()` + DB FK.
 - `accent` 는 Tailwind 정적 리터럴만 허용(DB check 제약) — 스캐너가 클래스를 생성해야 하므로.
 
-## AI 자동 생성 (매일 cron, 기본 OFF)
+## 매일 서적 자동 생성 = GitHub Actions + Claude Code (구독, 과금 0)
 
-`/api/ai/generate` 가 하루 1회 실행되며 **계획 → 생성** 2단계로 동작한다.
+**실제로 돌아가는 경로는 이것이다.** `.github/workflows/daily-book.yml` 이 매일 1권을 만든다.
+
+```
+cron(KST 06:00)
+  → scripts/ai/fetch-context.mjs   기존 토픽·서적 → .ai/context.json  (DB 는 스크립트만 접근)
+  → anthropics/claude-code-action  집필 → .ai/book.json  (Max 구독 토큰으로 인증)
+  → scripts/ai/insert-book.mjs     엄격 검증 → Supabase 에 status='draft' 삽입
+  → 관리자가 /wiki/admin 에서 검수·발행
+```
+
+- 인증은 `CLAUDE_CODE_OAUTH_TOKEN`(GitHub Secret, `claude setup-token` 으로 발급, 1년) — **구독 사용량에서 차감, API 종량제 과금 없음.**
+- 🚨 **워크플로에 `ANTHROPIC_API_KEY` 를 절대 넣지 말 것.** Claude Code 의 인증 우선순위상 API 키가 OAuth 토큰보다 앞서므로, 존재하면 조용히 종량제로 과금된다.
+- 검증 실패(챕터 400자 미만, slug 중복 등) 시 **아무 것도 삽입하지 않고** 워크플로를 실패시킨다. 챕터 삽입이 실패하면 서적도 롤백한다(반쪽짜리 초안 방지).
+- 필요한 GitHub Secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+
+## AI 자동 생성 — 유료 API 경로 (사용 안 함, 보존만)
+
+> ⚠️ **이 경로는 현재 비활성이다.** `vercel.json` 의 cron 에서 제거했다(유료 API 를 쓰지 않기 위해). 코드는 그대로 두었으므로, 나중에 AdSense 수익이 API 비용을 감당할 만해지면 `vercel.json` 에 cron 을 되살리고 `ANTHROPIC_API_KEY` 를 넣으면 즉시 동작한다. 관리자 화면의 `ai_settings` 도 이 경로를 위한 것이다.
+
+`/api/ai/generate` 는 **계획 → 생성** 2단계로 동작한다.
 1. `ai_settings`(관리자 화면에서 설정) 를 읽어 오늘 만들 권수를 정하고, Claude 에게 주제를 제안받아 job 을 큐에 넣는다(`lib/ai/plan.ts`). 없는 토픽이면 `topics` 행을 새로 만든다(`source='ai'`).
 2. pending job 을 claim → 초안 생성 → `books`/`chapters` 삽입.
 

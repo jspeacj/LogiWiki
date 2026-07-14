@@ -109,8 +109,13 @@ export default async function AdminPage() {
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground">매일 자동 생성</h2>
           <p className="mt-1 text-sm text-muted">
-            매일 정해진 권수만큼 AI 가 주제를 골라 초안을 만듭니다. 기존 토픽에 없는 분야면
-            토픽도 새로 만듭니다. <strong className="text-muted-strong">발행은 언제나 관리자 승인 후</strong>입니다.
+            매일 아침 GitHub Actions 가 Claude Code 로 서적 초안 1권을 만들어 여기 검수 큐에
+            넣습니다(구독 사용, 추가 과금 없음).{" "}
+            <strong className="text-muted-strong">발행은 언제나 관리자 승인 후</strong>입니다.
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            아래 설정은 <strong>유료 API 경로(Vercel cron)</strong> 전용입니다. 현재 그 cron 은
+            꺼져 있으므로, 여기서 켜도 실제 생성은 GitHub Actions 가 담당합니다.
           </p>
         </div>
         <AiSettingsForm settings={settings} apiEnabled={aiEnabled} />

@@ -1,7 +1,6 @@
 {
   "crons": [
     { "path": "/wiki/api/keep-alive", "schedule": "0 6 * * *" },
-    { "path": "/wiki/api/ai/generate", "schedule": "0 18 * * *" },
     { "path": "/wiki/api/cron/prune-views", "schedule": "0 4 * * 1" }
   ]
 }

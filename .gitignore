@@ -30,3 +30,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI 자동 생성 워크플로의 임시 산출물(컨텍스트·집필 결과)
+.ai/
