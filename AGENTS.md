@@ -62,6 +62,12 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - `0003_community` ~ `0007` — 게시판·댓글·추천·랭킹·퀴즈·AI 파이프라인 (Phase 2~3)
 - `0008_hardening` — 퀴즈 정답 컬럼 GRANT 차단 + 카운터 변조 방지 트리거 + 채점 레이트리밋 (**필수**)
 
+## Vercel cron 제약 (Hobby)
+
+`vercel.json` 의 cron 은 **Hobby 플랜에서 하루 1회까지만** 허용된다. `0 */6 * * *` 처럼 하루 여러 번 도는 표현식은 배포 자체가 실패한다(`Hobby accounts are limited to daily cron jobs`). 주 1회(`0 4 * * 1`)처럼 더 드문 것은 허용된다. 실행 시각도 ±59분 오차가 있다(Hobby).
+
+→ AI job 큐 drain 은 하루 1회. 즉시 돌려야 하면 `Authorization: Bearer $CRON_SECRET` 로 `/wiki/api/ai/generate` 를 직접 호출하면 된다. Pro 로 올리면 분 단위 cron 이 열린다.
+
 ## next.config — basePath + 구 서브도메인 308
 
 `basePath: '/wiki'`, `experimental.serverActions.allowedOrigins: ['logikitapps.com','wiki.logikitapps.com']`, `wiki.logikitapps.com` host 308 리다이렉트(도메인 할당 전 자연 비활성).
