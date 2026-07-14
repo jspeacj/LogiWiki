@@ -56,8 +56,8 @@ export default async function BooksPage({
         <p className="text-sm font-semibold text-brand">서적</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">전체 학습 서적</h1>
         <p className="mt-3 max-w-2xl text-muted">
-          AI 초안 + 사람 검수로 만든 IT 학습 서적 전체 목록입니다. 토픽으로 좁히고 정렬을
-          바꿔 원하는 서적을 찾아보세요.
+          검수를 거쳐 발행된 IT 학습 서적 전체 목록입니다. 토픽으로 좁히고 정렬을 바꿔 원하는
+          서적을 찾아보세요.
         </p>
       </header>
 

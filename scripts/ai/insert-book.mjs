@@ -44,10 +44,26 @@ const TOPIC_SLUG_RE = /^[a-z0-9][a-z0-9-]{0,38}$/;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{2,59}$/;
 
 /** 품질 기준 — 여기 미달이면 삽입하지 않는다. */
-const MIN_CHAPTERS = 6;
-const MAX_CHAPTERS = 14;
+const MIN_CHAPTERS = 5;
+const MAX_CHAPTERS = 18; // 주제에 따라 분량이 달라야 한다. 폭을 넓게 잡는다.
 const MIN_BODY_CHARS = 1200;
-const MIN_DIAGRAMS = 2;
+
+/**
+ * 챕터가 전부 같은 골격이면 기계가 찍어낸 티가 난다 — Google 의 "대규모 콘텐츠 남용"
+ * 판정에서 가장 먼저 걸리는 신호이자, 사람 독자도 바로 알아채는 신호다.
+ * 아래 상투적 소제목이 챕터 대부분에 반복되면 삽입을 거부한다.
+ */
+const BOILERPLATE_HEADINGS = ["학습 목표", "요약", "연습", "흔한 함정", "마치며", "정리"];
+const BOILERPLATE_RATIO = 0.7;
+
+/** AI 가 쓴 티가 나는 상투어. 본문에서 발견되면 경고한다(거부는 아님). */
+const AI_TELL_PHRASES = [
+  "깊이 있게 알아보",
+  "함께 살펴봅",
+  "이번 챕터에서는",
+  "결론적으로",
+  "종합하면",
+];
 
 function fail(message) {
   console.error(`❌ ${message}`);
@@ -161,19 +177,45 @@ for (const ch of outline.chapters) {
 
 const totalChars = chapters.reduce((n, c) => n + c.body.length, 0);
 
-// 다이어그램은 서적 전체 기준으로 센다(모든 챕터에 필요한 건 아니다).
-// 글로만 된 기술 서적은 이해를 돕지 못한다 → 최소 2개를 강제한다.
+// 다이어그램은 서적 전체 기준으로 센다. 개수 하한은 두지 않는다 —
+// 할당량을 채우려고 그린 다이어그램은 없느니만 못하고, 다이어그램이 필요 없는
+// 주제도 있다. 필요할 때 그렸는지는 사람이 검수에서 판단한다.
 const diagrams = chapters.reduce(
   (n, c) => n + (c.body.match(/```mermaid/g) ?? []).length,
   0,
 );
-need(
-  diagrams >= MIN_DIAGRAMS,
-  `mermaid 다이어그램이 ${diagrams}개 — 서적 전체에 최소 ${MIN_DIAGRAMS}개 필요`,
-);
 
+// ── 상투적 골격 검사 ────────────────────────────────────────────────────────
+// 모든 챕터가 "학습 목표 → 본문 → 요약 → 연습" 으로 똑같이 생겼다면 그건 템플릿을
+// 채운 것이지 쓴 게 아니다. 검색엔진의 대규모 콘텐츠 남용 판정에 직결된다.
+if (chapters.length >= 4) {
+  for (const heading of BOILERPLATE_HEADINGS) {
+    const re = new RegExp(`^#{2,3}\\s*${heading}`, "m");
+    const hits = chapters.filter((c) => re.test(c.body)).length;
+    const ratio = hits / chapters.length;
+    if (ratio >= BOILERPLATE_RATIO) {
+      fail(
+        `챕터 ${chapters.length}개 중 ${hits}개가 "${heading}" 소제목을 반복합니다 ` +
+          `(${Math.round(ratio * 100)}%). 모든 챕터가 같은 틀이면 기계가 찍어낸 글이 됩니다 — ` +
+          `각 챕터에 실제로 필요한 절만 두세요.`,
+      );
+    }
+  }
+}
+
+// ── 상투어 경고 (거부하지는 않음 — 검수자가 판단) ─────────────────────────────
+const tells = AI_TELL_PHRASES.flatMap((p) => {
+  const n = chapters.filter((c) => c.body.includes(p)).length;
+  return n > 0 ? [`"${p}"(${n}개 챕터)`] : [];
+});
+if (tells.length) {
+  console.log(`⚠️  AI 상투어가 보입니다 — 검수 때 손보세요: ${tells.join(", ")}`);
+}
+
+const lens = chapters.map((c) => c.body.trim().length);
 console.log(
-  `📚 "${outline.title}" — 챕터 ${chapters.length}개, 총 ${totalChars.toLocaleString()}자, 다이어그램 ${diagrams}개`,
+  `📚 "${outline.title}" — 챕터 ${chapters.length}개, 총 ${totalChars.toLocaleString()}자, ` +
+    `다이어그램 ${diagrams}개, 챕터 길이 ${Math.min(...lens).toLocaleString()}~${Math.max(...lens).toLocaleString()}자`,
 );
 
 // ── 3) 저자 = 관리자 프로필 ──────────────────────────────────────────────────
@@ -205,7 +247,27 @@ if (!existingTopic) {
 }
 
 // ── 5) 서적 — 항상 draft ─────────────────────────────────────────────────────
-const bookSlug = `${outline.slug}-${Date.now().toString(36).slice(-5)}`;
+// slug 는 URL 이자 SEO 자산이다. 예전에는 무조건 랜덤 접미사를 붙였는데(`react-ttj2o`),
+// 그러면 사람이 지은 적 없는 기계식 URL 이 되고 검색 키워드도 잃는다.
+// → 실제로 충돌할 때만 붙인다. 대부분의 서적은 깨끗한 slug 를 갖는다.
+const bookSlug = await resolveSlug(outline.slug);
+
+async function resolveSlug(base) {
+  for (let n = 0; n < 10; n++) {
+    // 접미사를 붙여도 DB CHECK(최대 60자)를 넘지 않도록 base 를 줄여둔다.
+    const suffix = n === 0 ? "" : `-${n + 1}`;
+    const candidate = base.slice(0, 60 - suffix.length) + suffix;
+    const { data, error } = await supabase
+      .from("books")
+      .select("id")
+      .eq("slug", candidate)
+      .maybeSingle();
+    if (error) fail(`slug 중복 확인 실패: ${error.message}`);
+    if (!data) return candidate;
+    console.log(`   ↳ slug 중복: ${candidate} — 다음 후보를 시도합니다`);
+  }
+  fail(`slug 후보를 10개 시도했으나 모두 중복입니다: ${base}`);
+}
 
 const { data: created, error: bookErr } = await supabase
   .from("books")

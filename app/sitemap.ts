@@ -27,6 +27,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_URL}/books`, changeFrequency: "daily", priority: 0.9 },
+    // 정적 정보 페이지 — AdSense 심사가 존재를 확인하는 페이지들.
+    { url: `${SITE_URL}/about`, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${SITE_URL}/contact`, changeFrequency: "monthly", priority: 0.3 },
+    { url: `${SITE_URL}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     ...topicEntries,
     ...contentEntries,
   ];

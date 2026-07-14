@@ -29,9 +29,9 @@ export const siteConfig = {
   // 브라우저 탭/메타 <title> 기본값 — 브랜드명만 노출.
   title: "LogiWiki",
   // 소셜/검색 미리보기용 서술형 제목(<title> 와 별개로 키워드 신호 유지).
-  ogTitle: "LogiWiki — AI가 만드는 IT 개념·언어 학습 서적 & 퀴즈",
+  ogTitle: "LogiWiki — IT 개념·언어 학습 서적 & 코딩 퀴즈",
   description:
-    "Java·C++·JavaScript·React·Next.js 등 IT 개념을 서적 형태로 깊이 있게 학습하세요. AI 초안 + 사람 검수로 만든 신뢰할 수 있는 학습 콘텐츠와 주제별 랜덤 퀴즈를 무료로 제공합니다.",
+    "Java·C++·JavaScript·React·Next.js 등 IT 개념을 서적 형태로 깊이 있게 학습하세요. 검수를 거친 학습 서적과 주제별 랜덤 퀴즈를 무료로 제공합니다.",
   keywords: [
     "IT 학습",
     "프로그래밍 공부",

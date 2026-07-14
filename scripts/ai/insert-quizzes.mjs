@@ -91,8 +91,10 @@ for (const [i, q] of items.entries()) {
   }
 
   // 해설이 없으면 틀렸을 때 배울 게 없다 → 퀴즈의 존재 이유가 없어진다.
-  if (typeof q.explanation !== "string" || q.explanation.trim().length < 20) {
-    fail(`${at}: explanation 이 20자 미만 — 왜 그 답인지 설명해야 합니다`);
+  // 해설이 곧 퀴즈의 본문이다. 20자짜리 한 줄 해설은 "정답은 b 입니다" 수준이라
+  // 학습 가치가 없고, 검색엔진에도 얇은 콘텐츠로 읽힌다.
+  if (typeof q.explanation !== "string" || q.explanation.trim().length < 80) {
+    fail(`${at}: explanation 이 80자 미만 — 왜 그 답이고 다른 보기는 왜 아닌지 설명해야 합니다`);
   }
 
   rows.push({

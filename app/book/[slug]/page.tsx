@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { BookOpen, CalendarDays, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
+import { BookOpen, CalendarDays, Eye, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
 import { getBookComments, hasRecommended } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
@@ -84,12 +84,6 @@ export default async function BookLandingPage({
           <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand">
             {book.topic_label}
           </span>
-          {book.source === "ai" && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-brand-2/15 px-2 py-0.5 text-[11px] font-medium text-brand-2">
-              <Sparkles className="size-3" strokeWidth={2.2} />
-              AI 초안·사람 검수
-            </span>
-          )}
         </div>
         <h1 className="mt-4 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
           {book.title}

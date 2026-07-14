@@ -25,7 +25,7 @@ export async function generateMetadata({
   if (!meta) return { title: "토픽을 찾을 수 없습니다", robots: { index: false, follow: false } };
   return {
     title: `${meta.label} 학습 서적`,
-    description: `${meta.label} — ${meta.desc}. AI 초안 + 사람 검수로 만든 ${meta.label} 학습 서적 모음.`,
+    description: `${meta.label} — ${meta.desc}. 검수를 거쳐 발행된 ${meta.label} 학습 서적 모음.`,
     // 정렬·페이지는 쿼리 파라미터이므로 canonical 은 기본 URL 로 고정한다(중복 색인 방지).
     alternates: { canonical: canonical(`topic/${topic}`) },
     robots: NOINDEX ? { index: false, follow: false } : undefined,

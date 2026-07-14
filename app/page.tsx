@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, PenLine, Sparkles } from "lucide-react";
+import { ArrowRight, BadgeCheck, BookOpen, PenLine } from "lucide-react";
 import { listBooks } from "@/lib/wiki/queries";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
 import { TopicGrid } from "@/components/wiki/topic-grid";
@@ -25,8 +25,8 @@ export default async function HomePage() {
       <section className="relative py-16 sm:py-24">
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-strong">
-            <Sparkles className="size-3.5 text-brand-2" strokeWidth={2.2} />
-            AI 초안 + 사람 검수로 만드는 신뢰할 수 있는 학습 콘텐츠
+            <BadgeCheck className="size-3.5 text-brand-2" strokeWidth={2.2} />
+            검수를 거친 서적만 발행합니다 · 열람 무료
           </span>
           <h1 className="mt-5 text-4xl font-bold leading-[1.15] tracking-tight sm:text-5xl">
             <span className="text-gradient">IT 개념·언어를</span>
