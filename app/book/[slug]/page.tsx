@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { BookOpen, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
-import { getBookBySlug } from "@/lib/wiki/queries";
+import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
 import { getBookComments, hasRecommended } from "@/lib/wiki/social";
 import { topicLabel } from "@/lib/wiki/topics";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
@@ -49,6 +50,10 @@ export default async function BookLandingPage({
 
   const firstChapter = flattenChapters(book.chapters)[0];
   const isPublished = book.status === "published";
+
+  // 랜딩도 조회로 집계한다(챕터 페이지와 동일). 렌더 경로 밖에서 fire-and-forget.
+  // 발행본만 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
+  if (isPublished) after(() => recordBookView(book.id));
 
   // 추천/댓글은 발행된 서적에서만(RLS 도 동일 강제).
   const [comments, recommended] = isPublished
