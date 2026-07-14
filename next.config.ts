@@ -35,6 +35,22 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        /**
+         * 셀프호스팅 폰트 — 1년 immutable.
+         *
+         * Vercel 은 public/ 자산을 기본적으로 `max-age=0, must-revalidate` 로 내려준다.
+         * 그러면 페이지를 열 때마다 폰트 청크마다 조건부 재검증 왕복이 생겨(304 라도 RTT 는
+         * 그대로다) 셀프호스팅으로 얻은 것을 도로 까먹는다.
+         *
+         * 경로에 버전이 박혀 있으므로(/fonts/pretendard-1.3.9/...) immutable 이 안전하다.
+         * 폰트를 올릴 때는 디렉터리명과 app/layout.tsx 의 PRETENDARD_CSS 를 함께 바꾼다.
+         */
+        source: "/fonts/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           // 클릭재킹 차단. /admin 의 발행 버튼이 iframe 에 얹혀 클릭당하는 걸 막는다.

@@ -19,6 +19,16 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+/**
+ * Pretendard 스타일시트 경로. **버전이 경로에 들어 있다.**
+ *
+ * Vercel 은 public/ 자산을 `max-age=0, must-revalidate` 로 내려준다 → 페이지를 열 때마다
+ * 폰트 청크마다 조건부 재검증 왕복이 생겨 셀프호스팅의 이득이 상쇄된다.
+ * next.config.ts 에서 /fonts/* 에 1년 immutable 캐시를 걸었고, 그게 안전하려면 파일 내용이
+ * 바뀔 때 **경로가 바뀌어야** 한다. Pretendard 를 올릴 때 이 버전과 디렉터리명을 함께 바꾼다.
+ */
+const PRETENDARD_CSS = "/fonts/pretendard-1.3.9/pretendard.css";
+
 export const metadata: Metadata = {
   // metadataBase 는 origin. per-page canonical 에 /wiki 경로를 지정한다.
   metadataBase: new URL(siteConfig.origin),
@@ -112,11 +122,11 @@ export default function RootLayout({
         <link
           rel="preload"
           as="style"
-          href={`${siteConfig.basePath}/fonts/pretendard/pretendard.css`}
+          href={`${siteConfig.basePath}${PRETENDARD_CSS}`}
         />
         <link
           rel="stylesheet"
-          href={`${siteConfig.basePath}/fonts/pretendard/pretendard.css`}
+          href={`${siteConfig.basePath}${PRETENDARD_CSS}`}
         />
         <StructuredData />
       </head>
