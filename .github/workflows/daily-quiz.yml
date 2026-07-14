@@ -1,0 +1,153 @@
+name: 매일 퀴즈 생성
+
+# 매일 랜덤 토픽 3개 × 2문항 = 6문항의 객관식 퀴즈를 만들어 초안으로 넣는다.
+# 관리자가 /wiki/admin 에서 승인해야 실제로 출제된다.
+#
+# 💰 과금: Claude Code 를 Max 구독 토큰으로 인증하므로 API 종량제 청구가 없다.
+# ⚠️ ANTHROPIC_API_KEY 를 이 워크플로 어디에도 넣지 말 것(있으면 종량제로 과금된다).
+#
+# 왜 객관식만? 서술형·빈칸코드는 채점에 Claude API 가 필요한데, 그 키를 쓰지 않기로 했다.
+# 키 없이 채점되지 않는 문제를 내면 사용자 경험만 나빠진다.
+
+on:
+  schedule:
+    # UTC 22:00 = KST 07:00 — 서적 생성(06:00)과 겹치지 않게 한 시간 뒤.
+    - cron: "0 22 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-quiz
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # claude-code-action 의 OIDC 토큰 발급용
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Supabase 클라이언트 설치
+        run: npm install --no-save --no-package-lock @supabase/supabase-js@^2
+
+      # 랜덤 토픽 선정은 스크립트가 한다(모델에게 맡기면 인기 토픽으로 쏠린다).
+      # 문항이 적은 토픽에 가중치를 줘 편중을 막는다.
+      - name: 1) 출제 컨텍스트 수집 (랜덤 토픽 + 기존 문제)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          QUIZ_TOPIC_COUNT: "3"
+          QUIZ_PER_TOPIC: "2"
+        run: node scripts/ai/fetch-quiz-context.mjs
+
+      - name: 2) 출제 (Claude Code — Max 구독 인증)
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: >-
+            --allowedTools Read,Write,Edit,Glob,Grep
+            --max-turns 30
+          prompt: |
+            당신은 IT 학습 플랫폼 LogiWiki 의 출제자입니다.
+            오늘의 **객관식 퀴즈**를 만들어 `.ai/quizzes.json` 파일로 저장하세요.
+
+            ⚠️ 산출물은 **파일**입니다. Write 도구로 저장하지 않으면 다음 단계가 실패합니다.
+
+            ## 1단계 — 컨텍스트 확인
+
+            `.ai/quiz-context.json` 을 읽으세요. 다음이 들어 있습니다:
+            - `targets`: 오늘 출제할 토픽들(시스템이 랜덤 선정)
+            - `targets[].existingPrompts`: 그 토픽의 **기존 문제** — 절대 중복 출제 금지
+            - `perTopic`: 토픽당 만들 문항 수
+
+            **각 토픽마다 `perTopic` 개씩** 문제를 만드세요.
+
+            ## 2단계 — 출제 원칙
+
+            좋은 문제는 **개념을 이해했는지**를 묻습니다. 암기를 묻지 마세요.
+
+            - ❌ 나쁨: "Array.prototype.slice 의 두 번째 인자 이름은?" (암기)
+            - ✅ 좋음: "다음 코드의 출력은? `console.log([1,2,3].slice(1))`" (이해)
+            - ✅ 좋음: "useEffect 의 의존성 배열을 빈 배열로 두면 언제 실행되는가?" (원리)
+
+            **오답 선택지가 그럴듯해야** 합니다. 명백히 틀린 보기만 있으면 문제가 아닙니다.
+            실제로 학습자가 헷갈리는 지점을 오답으로 만드세요.
+
+            난이도(`difficulty`)는 easy / medium / hard 중에서, 골고루 섞으세요.
+
+            **해설(`explanation`)이 가장 중요합니다.** 왜 그 답이 정답이고 다른 건 왜 아닌지
+            설명하세요. 틀린 사람이 해설을 읽고 배울 수 있어야 합니다. 최소 20자 이상.
+
+            ## 3단계 — 저장
+
+            `.ai/quizzes.json` 에 아래 형식으로 저장하세요:
+
+            ```json
+            {
+              "quizzes": [
+                {
+                  "type": "mcq",
+                  "topic": "javascript",
+                  "difficulty": "medium",
+                  "language": "ko",
+                  "prompt": "다음 코드의 출력 순서는?\n\nconsole.log(1);\nsetTimeout(() => console.log(2), 0);\nPromise.resolve().then(() => console.log(3));",
+                  "choices": [
+                    { "key": "a", "text": "1 2 3" },
+                    { "key": "b", "text": "1 3 2" },
+                    { "key": "c", "text": "1 2 3 (순서 보장 안 됨)" },
+                    { "key": "d", "text": "3 1 2" }
+                  ],
+                  "answer": "b",
+                  "explanation": "동기 코드(1)가 먼저 실행되고, 콜 스택이 비면 마이크로태스크 큐(Promise → 3)를 전부 비운 뒤에 매크로태스크(setTimeout → 2)를 실행합니다."
+                }
+              ]
+            }
+            ```
+
+            ## 규칙 (위반 시 삽입이 거부됩니다)
+
+            - `type` 은 **반드시 `"mcq"`** (서술형·빈칸코드는 채점 인프라가 없습니다)
+            - `topic` 은 quiz-context.json 의 `targets[].slug` 중 하나
+            - `choices` 는 **3~5개**, key 는 `a`~`e`, 중복 금지
+            - `answer` 는 **실제 선택지 key 중 하나** (없는 키를 쓰면 영원히 못 맞히는 문제가 됩니다)
+            - `explanation` 은 **20자 이상**
+            - 기존 문제(`existingPrompts`)와 중복 금지
+
+      - name: 출제 결과 확인
+        run: |
+          if [ ! -f .ai/quizzes.json ]; then
+            echo "::error::Claude Code 가 .ai/quizzes.json 을 만들지 않았습니다."
+            ls -la .ai/ 2>/dev/null || echo "(.ai 디렉터리 없음)"
+            exit 1
+          fi
+          node -e "
+            const p = JSON.parse(require('fs').readFileSync('.ai/quizzes.json','utf8'));
+            const items = Array.isArray(p) ? p : p.quizzes;
+            console.log('문항:', items.length, '개');
+            for (const q of items) {
+              console.log('  [' + q.topic + '/' + q.difficulty + '] ' +
+                (q.prompt ?? '').replace(/\n/g, ' ').slice(0, 50) + '… → 정답 ' + q.answer);
+            }
+          "
+
+      - name: 3) 초안 삽입 (검증 → Supabase, status=draft)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/ai/insert-quizzes.mjs
+
+      - name: 실패 시 산출물 업로드(디버깅용)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-quiz-output
+          path: .ai/
+          retention-days: 7

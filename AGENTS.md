@@ -93,6 +93,15 @@ cron(KST 06:00)
 - 검증 실패(챕터 400자 미만, slug 중복 등) 시 **아무 것도 삽입하지 않고** 워크플로를 실패시킨다. 챕터 삽입이 실패하면 서적도 롤백한다(반쪽짜리 초안 방지).
 - 필요한 GitHub Secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
+### 매일 퀴즈 생성 (`daily-quiz.yml`, KST 07:00)
+
+같은 구조로 **객관식 퀴즈**를 만든다. 랜덤 토픽 3개 × 2문항 = 6문항.
+
+- **랜덤 토픽 선정은 스크립트가 한다**(`fetch-quiz-context.mjs`). 모델에게 맡기면 인기 토픽으로 쏠린다. 문항이 적은 토픽에 가중치를 줘 편중을 막는다.
+- **객관식(mcq)만 만든다.** 서술형·빈칸코드는 채점에 Claude API 가 필요한데 그 키를 쓰지 않는다. 채점되지 않는 문제를 내면 사용자 경험만 나빠진다. → API 를 붙이면 그때 확장.
+- `status=draft` 로 들어오고 `/wiki/admin` 의 **검수 대기 퀴즈**에서 승인해야 출제된다.
+- 검증: 정답 키가 실제 선택지에 있는지, 해설이 20자 이상인지, 기존 문제와 중복인지.
+
 ## AI 자동 생성 — 유료 API 경로 (사용 안 함, 보존만)
 
 > ⚠️ **이 경로는 현재 비활성이다.** `vercel.json` 의 cron 에서 제거했다(유료 API 를 쓰지 않기 위해). 코드는 그대로 두었으므로, 나중에 AdSense 수익이 API 비용을 감당할 만해지면 `vercel.json` 에 cron 을 되살리고 `ANTHROPIC_API_KEY` 를 넣으면 즉시 동작한다. 관리자 화면의 `ai_settings` 도 이 경로를 위한 것이다.

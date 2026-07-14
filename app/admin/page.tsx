@@ -9,6 +9,7 @@ import { canonical } from "@/lib/site";
 import { GenerateForm } from "@/components/admin/generate-form";
 import { AiSettingsForm } from "@/components/admin/ai-settings-form";
 import { DraftReview } from "@/components/admin/draft-review";
+import { QuizReview, type DraftQuiz } from "@/components/admin/quiz-review";
 import type { AiSettings } from "@/app/actions/wiki-admin";
 
 export const metadata: Metadata = {
@@ -34,26 +35,38 @@ export default async function AdminPage() {
   // AI 생성은 유료 API. 키가 없으면 폼 대신 안내를 띄운다(cron 도 자동으로 skip 된다).
   const aiEnabled = !!process.env.ANTHROPIC_API_KEY;
 
-  const [{ data: drafts }, { data: jobs }, { data: settingsRow }, topics, topicMap] =
-    await Promise.all([
-      supabase
-        .from("books")
-        .select("id, slug, title, topic, source, status, created_at")
-        .in("status", ["draft", "in_review"])
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("ai_generation_jobs")
-        .select("id, topic, subtopic, status, error, created_at")
-        .order("created_at", { ascending: false })
-        .limit(20),
-      supabase
-        .from("ai_settings")
-        .select("enabled, daily_book_count, language")
-        .eq("id", true)
-        .maybeSingle(),
-      getTopics(),
-      getTopicMap(),
-    ]);
+  const [
+    { data: drafts },
+    { data: draftQuizzes },
+    { data: jobs },
+    { data: settingsRow },
+    topics,
+    topicMap,
+  ] = await Promise.all([
+    supabase
+      .from("books")
+      .select("id, slug, title, topic, source, status, created_at")
+      .in("status", ["draft", "in_review"])
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("quizzes")
+      .select("id, topic, difficulty, prompt, choices, answer, explanation, created_at")
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("ai_generation_jobs")
+      .select("id, topic, subtopic, status, error, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20),
+    supabase
+      .from("ai_settings")
+      .select("enabled, daily_book_count, language")
+      .eq("id", true)
+      .maybeSingle(),
+    getTopics(),
+    getTopicMap(),
+  ]);
 
   const settings: AiSettings = (settingsRow as AiSettings | null) ?? {
     enabled: false,
@@ -65,6 +78,17 @@ export default async function AdminPage() {
   const draftRows = (drafts ?? []).map((d) => ({
     ...d,
     topic_label: topicMap[d.topic]?.label ?? d.topic,
+  }));
+
+  const quizRows: DraftQuiz[] = (draftQuizzes ?? []).map((q) => ({
+    id: q.id as string,
+    topic: q.topic as string,
+    topic_label: topicMap[q.topic as string]?.label ?? (q.topic as string),
+    difficulty: q.difficulty as string,
+    prompt: q.prompt as string,
+    choices: (q.choices as DraftQuiz["choices"]) ?? [],
+    answer: q.answer as string,
+    explanation: q.explanation as string,
   }));
 
   return (
@@ -143,8 +167,28 @@ export default async function AdminPage() {
       </section>
 
       <section className="border-t border-white/10 py-8">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">검수 대기 초안</h2>
+        <h2 className="mb-4 text-lg font-semibold text-foreground">
+          검수 대기 초안
+          {draftRows.length > 0 && (
+            <span className="ml-2 text-sm font-normal text-muted">{draftRows.length}권</span>
+          )}
+        </h2>
         <DraftReview drafts={draftRows} />
+      </section>
+
+      <section className="border-t border-white/10 py-8">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-foreground">
+            검수 대기 퀴즈
+            {quizRows.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-muted">{quizRows.length}문항</span>
+            )}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            매일 아침 랜덤 토픽으로 객관식 문제가 출제됩니다. 정답·해설을 확인하고 승인하세요.
+          </p>
+        </div>
+        <QuizReview quizzes={quizRows} />
       </section>
 
       <section className="border-t border-white/10 py-8">

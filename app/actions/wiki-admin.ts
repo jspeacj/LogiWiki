@@ -94,6 +94,38 @@ export async function rejectBook(bookId: string): Promise<AdminActionState> {
   return { ok: true };
 }
 
+// ── 퀴즈 검수 ────────────────────────────────────────────────────────────────
+// 자동 생성된 퀴즈도 서적과 같은 규칙을 따른다: draft 로 들어오고, 관리자가 승인해야 출제된다.
+
+/** 퀴즈 승인 → published(출제 시작). */
+export async function approveQuiz(quizId: string): Promise<AdminActionState> {
+  const admin = await requireAdmin();
+  if (!admin) return { error: "FORBIDDEN" };
+  if (!z.string().uuid().safeParse(quizId).success) return { error: "VALIDATION" };
+
+  const { error } = await admin.supabase
+    .from("quizzes")
+    .update({ status: "published" })
+    .eq("id", quizId);
+  if (error) return { error: "WRITE_FAILED" };
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** 퀴즈 반려 → 삭제(초안은 보관할 가치가 없다). */
+export async function rejectQuiz(quizId: string): Promise<AdminActionState> {
+  const admin = await requireAdmin();
+  if (!admin) return { error: "FORBIDDEN" };
+  if (!z.string().uuid().safeParse(quizId).success) return { error: "VALIDATION" };
+
+  const { error } = await admin.supabase.from("quizzes").delete().eq("id", quizId);
+  if (error) return { error: "WRITE_FAILED" };
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 // ── AI 자동 생성 설정(매일 cron 이 읽는다) ──────────────────────────────────
 export interface AiSettings {
   enabled: boolean;
