@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { authErrorMessage } from "@/lib/auth/errors";
 import { isValidPassword } from "@/lib/auth/validators";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,7 @@ export function UpdatePasswordForm() {
     setLoading(false);
 
     if (error) {
-      setErrors({ form: error.message || "문제가 발생했습니다. 다시 시도해 주세요." });
+      setErrors({ form: authErrorMessage(error) });
       return;
     }
     setDone(true);

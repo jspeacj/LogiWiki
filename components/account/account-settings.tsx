@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { updateNickname, type AccountState } from "@/app/actions/account";
 import { createClient } from "@/lib/supabase/client";
+import { authErrorMessage } from "@/lib/auth/errors";
 import { useAuth } from "@/lib/auth/context";
 import {
   hasReservedNickname,
@@ -215,7 +216,7 @@ function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
     const { error: err } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (err) {
-      setError(err.message || "문제가 발생했습니다. 다시 시도해 주세요.");
+      setError(authErrorMessage(err));
       return;
     }
     setPassword("");

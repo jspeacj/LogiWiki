@@ -12,6 +12,7 @@ import {
   isValidPassword,
 } from "@/lib/auth/validators";
 import { isAdminEmail } from "@/lib/auth/admin";
+import { authErrorMessage } from "@/lib/auth/errors";
 import { isNicknameTaken } from "@/lib/auth/nickname";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,8 @@ export function SignupForm() {
     setLoading(false);
 
     if (error) {
-      setErrors({ form: error.message || "문제가 발생했습니다. 다시 시도해 주세요." });
+      // 원문(error.message)을 그대로 뿌리면 GoTrue 가 본문 없는 5xx 를 줄 때 "{}" 가 노출된다.
+      setErrors({ form: authErrorMessage(error) });
       return;
     }
 
