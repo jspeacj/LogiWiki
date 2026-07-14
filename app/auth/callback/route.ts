@@ -12,11 +12,12 @@ import { authUrl } from "@/lib/site";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const rawNext = searchParams.get("next") ?? "/account";
+  // 기본 착지점은 메인. 비밀번호 재설정만 next=/update-password 로 명시해 넘어온다.
+  const rawNext = searchParams.get("next") ?? "/";
 
   // 오픈 리다이렉트 방지: 내부 절대경로만 허용.
   const next =
-    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/account";
+    rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
   if (code) {
     const supabase = await createClient();
