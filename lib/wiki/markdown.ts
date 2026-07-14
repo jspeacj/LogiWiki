@@ -45,7 +45,32 @@ async function highlight(code: string, rawLang: string): Promise<string> {
   }
 }
 
+/** HTML 특수문자 이스케이프(하이라이트 실패 시 평문 폴백용). */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * 챕터 본문 렌더. 실패해도 절대 throw 하지 않는다.
+ *
+ * 이 함수는 RSC 렌더 도중 호출되므로, 여기서 예외가 나면 챕터 페이지 전체가 500 이 된다.
+ * shiki 문법 로딩이나 새니타이즈가 어떤 이유로든 실패하면 하이라이트를 포기하고
+ * 평문(escape 된 마크다운)이라도 보여주는 편이 낫다.
+ */
 export async function renderMarkdown(markdown: string): Promise<string> {
+  try {
+    return await renderMarkdownUnsafe(markdown);
+  } catch (e) {
+    console.error("[wiki/markdown] 렌더 실패 — 평문으로 폴백", e);
+    return `<pre class="whitespace-pre-wrap">${escapeHtml(markdown ?? "")}</pre>`;
+  }
+}
+
+async function renderMarkdownUnsafe(markdown: string): Promise<string> {
   if (!markdown?.trim()) return "";
 
   const marked = new Marked({ gfm: true });
