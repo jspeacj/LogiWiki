@@ -119,6 +119,16 @@ cron(KST 06:00)
 - `status=draft` 로 들어오고 `/wiki/admin` 의 **검수 대기 퀴즈**에서 승인해야 출제된다.
 - 검증: 정답 키가 실제 선택지에 있는지, 해설이 20자 이상인지, 기존 문제와 중복인지.
 
+## 🚨 이 repo 는 public 이다 — 워크플로 트리거 규칙
+
+Actions 무료 시간을 무제한으로 쓰기 위해 public 으로 전환했다(private 는 월 2,000분 상한). 대가로 **누구나 포크·PR 을 열 수 있다.**
+
+**절대 추가하지 말 것 — `pull_request_target`, `issue_comment`, `workflow_run`.** 이 트리거들은 **포크 PR 의 코드에 우리 시크릿을 붙여** 실행한다. 외부인이 PR 하나로 `SUPABASE_SERVICE_ROLE_KEY`(RLS 우회 = DB 전권)와 `CLAUDE_CODE_OAUTH_TOKEN`(구독 토큰)을 탈취할 수 있다.
+
+현재 트리거는 `schedule` + `workflow_dispatch` 뿐이고, 둘 다 write 권한자만 실행한다. **이 상태를 유지한다.** PR 에 반응하는 자동화가 필요하면 `pull_request`(시크릿 미주입)만 쓰고, 시크릿이 필요한 작업은 절대 그 안에서 하지 않는다.
+
+부수 효과로 알아둘 것: public 에서는 **Actions 로그와 실패 시 업로드되는 `.ai/` 아티팩트가 전부 공개**된다(시크릿 값 자체는 GitHub 이 마스킹). 로그에 민감한 값을 `echo` 하지 말 것.
+
 ## AI 자동 생성 — 유료 API 경로 (사용 안 함, 보존만)
 
 > ⚠️ **이 경로는 현재 비활성이다.** `vercel.json` 의 cron 에서 제거했다(유료 API 를 쓰지 않기 위해). 코드는 그대로 두었으므로, 나중에 AdSense 수익이 API 비용을 감당할 만해지면 `vercel.json` 에 cron 을 되살리고 `ANTHROPIC_API_KEY` 를 넣으면 즉시 동작한다. 관리자 화면의 `ai_settings` 도 이 경로를 위한 것이다.
