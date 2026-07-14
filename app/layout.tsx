@@ -95,11 +95,28 @@ export default function RootLayout({
       <head>
         {/* FOUC 방지: 하이드레이션 전에 저장값/OS설정으로 테마 클래스 교정 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        {/* 폰트 CDN 조기 연결 — DNS+TLS 핸드셰이크를 크리티컬 패스에서 미리 수행해 LCP 단축 */}
-        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
+        {/*
+          Pretendard — 셀프호스팅(public/fonts/pretendard/).
+
+          예전엔 cdn.jsdelivr.net 에서 렌더 블로킹 <link rel=stylesheet> 로 받았다.
+          preconnect 는 핸드셰이크만 숨길 뿐 블로킹 페치 자체는 못 없앤다 —
+          모든 페이지의 크리티컬 패스에 서드파티 왕복이 하나 끼어 있었다.
+
+          동적 서브셋(92청크, unicode-range) 구조는 그대로 가져왔다. 전체 가변 폰트는
+          2MB 라 통째로 셀프호스팅하면 오히려 LCP 가 나빠진다 — 브라우저가 실제 쓰는
+          글자 조각(청크당 ~40KB)만 받게 두는 편이 훨씬 빠르다.
+
+          ⚠️ basePath 규칙 1: public 자산은 수동으로 /wiki 접두어가 필요하다.
+             CSS 안의 url() 은 스타일시트 기준 상대경로라 자동으로 맞는다.
+        */}
+        <link
+          rel="preload"
+          as="style"
+          href={`${siteConfig.basePath}/fonts/pretendard/pretendard.css`}
+        />
         <link
           rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+          href={`${siteConfig.basePath}/fonts/pretendard/pretendard.css`}
         />
         <StructuredData />
       </head>

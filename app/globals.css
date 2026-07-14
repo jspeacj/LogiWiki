@@ -27,6 +27,13 @@
   --glow-3: 34 211 238;
 
   --ring: #818cf8;
+
+  /* 코드블록 배경. shiki 가 인라인으로 박던 #24292e(github-dark)는 사이트 배경
+     #07070b 위에서 GitHub 에서 오려 붙인 것처럼 겉돌았다 → 우리가 소유한다
+     (lib/wiki/markdown.ts 의 stripInlineBackground 가 인라인 값을 걷어낸다).
+     라이트 테마에서도 어둡게 유지한다 — 토큰 색이 다크 테마 기준이라 밝은 배경에
+     얹으면 대비가 무너진다. 문서 사이트에서 흔한 선택이다. */
+  --code-bg: #0e0f18;
   color-scheme: dark;
 }
 
@@ -289,6 +296,12 @@ body {
   tab-size: 2;
   /* 복사 버튼·언어 라벨을 얹기 위한 기준점. */
   position: relative;
+}
+
+/* 코드블록 배경은 CSS 가 소유한다(shiki 인라인 배경은 markdown.ts 에서 제거).
+   라이트/다크 양쪽에서 같은 어두운 표면을 쓴다 — 토큰 색이 다크 기준이다. */
+.book-prose pre.shiki {
+  background: var(--code-bg);
 }
 
 /* ── 코드블록: 언어 라벨 + 복사 버튼 ─────────────────────────────────────────

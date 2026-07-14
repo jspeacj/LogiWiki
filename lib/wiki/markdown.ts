@@ -97,15 +97,31 @@ const LANG_ALIASES: Record<string, string> = {
   txt: "text",
 };
 
+/**
+ * 코드블록 테마.
+ *
+ * github-dark 는 배경이 #24292e(회청색)인데 사이트 배경은 #07070b(남색 근검정)이라,
+ * 코드블록이 GitHub 에서 오려 붙인 이물질처럼 보였다 — "스크립트가 조립한 페이지" 라는
+ * 인상을 주는 지점이었다. vitesse-dark 는 채도가 낮고 배경이 어두워 우리 팔레트에 앉는다.
+ */
+const CODE_THEME = "vitesse-dark";
+
+/** shiki 가 <pre>/<code> 에 박는 인라인 배경. 우리 CSS 가 배경을 소유하도록 걷어낸다. */
+function stripInlineBackground(html: string): string {
+  return html.replace(/background-color:[^;"]*;?/g, "");
+}
+
 async function highlight(code: string, rawLang: string): Promise<string> {
   const lang = LANG_ALIASES[rawLang] ?? rawLang ?? "text";
   let html: string;
   try {
-    html = await codeToHtml(code, { lang: lang || "text", theme: "github-dark" });
+    html = await codeToHtml(code, { lang: lang || "text", theme: CODE_THEME });
   } catch {
     // 미등록/오탈자 언어는 일반 텍스트로 폴백(throw 방지).
-    html = await codeToHtml(code, { lang: "text", theme: "github-dark" });
+    html = await codeToHtml(code, { lang: "text", theme: CODE_THEME });
   }
+  html = stripInlineBackground(html);
+
   // 언어 라벨(::before)과 복사 버튼이 쓸 표식. shiki 는 이 속성을 붙여주지 않는다.
   const label = lang && lang !== "text" ? lang : "";
   return label ? html.replace("<pre", `<pre data-lang="${escapeHtml(label)}"`) : html;
