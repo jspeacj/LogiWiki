@@ -23,6 +23,21 @@ async function getClient(): Promise<SupabaseClient | null> {
   return createClient();
 }
 
+/**
+ * 쿼리 실패를 서버 로그에 남긴다.
+ *
+ * 이 모듈은 에러를 빈 결과로 degrade 시키는데(env 미설정 시 앱이 뜨도록), 그 탓에 진짜 쿼리
+ * 오류까지 조용히 삼켜져 "데이터가 없음"과 구분되지 않는다. 실제로 PGRST201(임베드 모호성)이
+ * 이 경로로 숨어 서적 목록·상세가 통째로 404 로 보인 적이 있다. 이제는 로그로 드러난다.
+ */
+function logQueryError(where: string, error: { message?: string; code?: string } | null): void {
+  if (!error) return;
+  console.error(`[wiki/queries] ${where} 실패`, {
+    code: error.code,
+    message: error.message,
+  });
+}
+
 /** PostgREST 임베드(object|array) → 단일 ProfileRef 로 정규화. */
 function normalizeAuthor(embed: unknown): ProfileRef | null {
   if (!embed) return null;
@@ -37,8 +52,15 @@ function normalizeAuthor(embed: unknown): ProfileRef | null {
   };
 }
 
+/**
+ * 저자 임베드는 반드시 FK 를 명시한다(`!books_author_id_fkey`).
+ *
+ * books↔profiles 경로가 둘이라(직접 FK인 books.author_id, 그리고 book_recommendations 를
+ * 경유하는 다대다) 그냥 `author:profiles(...)` 로 쓰면 PostgREST 가 PGRST201(모호함)로
+ * 쿼리를 **거부**한다. 그러면 목록/상세가 조용히 빈 결과가 되어 404 로 보인다.
+ */
 const BOOK_LIST_COLUMNS =
-  "id, slug, language, title, description, topic, source, status, view_count, recommend_count, cover_url, published_at, created_at, updated_at, author:profiles(id, nickname, avatar_url)";
+  "id, slug, language, title, description, topic, source, status, view_count, recommend_count, cover_url, published_at, created_at, updated_at, author:profiles!books_author_id_fkey(id, nickname, avatar_url)";
 
 /** ilike 패턴 특수문자 이스케이프(%, _, \). */
 function escapeLike(input: string): string {
@@ -108,6 +130,7 @@ export async function listBooks(
   if (q && q.trim()) query = query.ilike("title", `%${escapeLike(q.trim())}%`);
 
   const { data, error, count } = await query;
+  logQueryError("listBooks", error);
   if (error || !data) return { items: [], total: 0, page, perPage };
 
   return {
@@ -149,6 +172,7 @@ export async function getChapterTree(bookId: string): Promise<ChapterNode[]> {
     .select("id, book_id, parent_id, slug, title, sort_order")
     .eq("book_id", bookId)
     .order("sort_order", { ascending: true });
+  logQueryError("getChapterTree", error);
   if (error || !data) return [];
   return buildTree(data as Array<Omit<ChapterNode, "children">>);
 }
@@ -175,6 +199,7 @@ export const getBookBySlug = cache(async function getBookBySlug(
       `${BOOK_LIST_COLUMNS}, chapters(id, book_id, parent_id, slug, title, sort_order)`,
     )
     .eq("slug", slug);
+  logQueryError("getBookBySlug", error);
   if (error || !data || data.length === 0) return null;
 
   const rows = data as Record<string, unknown>[];
@@ -199,6 +224,7 @@ export const getChapter = cache(async function getChapter(
     .eq("book_id", bookId)
     .eq("slug", chapterSlug)
     .maybeSingle();
+  logQueryError("getChapter", error);
   if (error || !data) return null;
   return data as ChapterDetail;
 });
