@@ -46,7 +46,7 @@ export default async function QuizTopicPage({
       </header>
 
       <section className="py-8">
-        <QuizRunner topic={topic} quiz={quiz} />
+        <QuizRunner quiz={quiz} />
       </section>
     </div>
   );

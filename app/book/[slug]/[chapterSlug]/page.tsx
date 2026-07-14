@@ -51,8 +51,11 @@ export default async function ChapterPage({
   const chapter = await getChapter(book.id, chapterSlug);
   if (!chapter) notFound();
 
+  const isPublished = book.status === "published";
+
   // 렌더 경로 밖에서 조회수 기록(응답 지연 없음).
-  after(() => recordBookView(book.id));
+  // 발행본만 집계한다 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
+  if (isPublished) after(() => recordBookView(book.id));
 
   const html = await renderMarkdown(chapter.body);
 
@@ -60,7 +63,6 @@ export default async function ChapterPage({
   const idx = flat.findIndex((c) => c.slug === chapter.slug);
   const prev = idx > 0 ? flat[idx - 1] : null;
   const next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null;
-  const isPublished = book.status === "published";
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10">

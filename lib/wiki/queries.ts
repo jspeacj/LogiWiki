@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { ProfileRef } from "@/lib/auth/types";
@@ -153,10 +154,16 @@ export async function getChapterTree(bookId: string): Promise<ChapterNode[]> {
 }
 
 /**
- * slug + language 로 서적 조회(+목차 트리). status 필터를 걸지 않고 RLS 에 위임한다
- * → 비회원엔 published 만, 저자/관리자엔 자기 draft 도 보인다(미리보기).
+ * slug 로 서적 조회(+목차 트리). 서적+챕터를 임베드로 한 번에 읽는다.
+ *
+ * - status 필터를 걸지 않고 RLS 에 위임한다 → 비회원엔 published 만, 저자/관리자엔
+ *   자기 draft 도 보인다(미리보기).
+ * - language 는 필터가 아니라 선호값이다. URL 은 `/book/{slug}` 뿐이므로 언어를 강제로
+ *   'ko' 로 필터하면 en/ja 서적이 목록엔 뜨는데 열면 404 가 된다. slug 는 생성 시
+ *   랜덤 접미사가 붙어 사실상 유일하지만, 같은 slug 의 번역본이 있으면 선호 언어를 고른다.
+ * - React cache: generateMetadata 와 페이지 본문이 같은 요청에서 두 번 호출해도 쿼리는 1회.
  */
-export async function getBookBySlug(
+export const getBookBySlug = cache(async function getBookBySlug(
   slug: string,
   language = "ko",
 ): Promise<BookDetail | null> {
@@ -164,18 +171,23 @@ export async function getBookBySlug(
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("books")
-    .select(BOOK_LIST_COLUMNS)
-    .eq("slug", slug)
-    .eq("language", language)
-    .maybeSingle();
-  if (error || !data) return null;
-  const book = mapBook(data as Record<string, unknown>);
-  const chapters = await getChapterTree(book.id);
+    .select(
+      `${BOOK_LIST_COLUMNS}, chapters(id, book_id, parent_id, slug, title, sort_order)`,
+    )
+    .eq("slug", slug);
+  if (error || !data || data.length === 0) return null;
+
+  const rows = data as Record<string, unknown>[];
+  const row = rows.find((r) => r.language === language) ?? rows[0];
+  const book = mapBook(row);
+  const chapters = buildTree(
+    (row.chapters ?? []) as Array<Omit<ChapterNode, "children">>,
+  );
   return { ...book, chapters };
-}
+});
 
 /** 서적 내 단일 챕터(본문 포함). */
-export async function getChapter(
+export const getChapter = cache(async function getChapter(
   bookId: string,
   chapterSlug: string,
 ): Promise<ChapterDetail | null> {
@@ -189,7 +201,7 @@ export async function getChapter(
     .maybeSingle();
   if (error || !data) return null;
   return data as ChapterDetail;
-}
+});
 
 /** sitemap·generateStaticParams 용: 발행된 서적의 (slug, language). */
 export async function getPublishedBookSlugs(): Promise<

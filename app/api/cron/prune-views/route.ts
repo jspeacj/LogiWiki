@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
+import { isAuthorizedCron } from "@/lib/cron";
 
 /**
  * 조회수 일별 버킷 보존: 400일 초과분 삭제(주간 cron). 무제한 성장 방지.
  */
 export const dynamic = "force-dynamic";
 
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 export async function GET(request: Request) {
-  if (!authorized(request)) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   if (!hasAdminEnv()) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
 import { generateBookDraft } from "@/lib/ai/generate";
 import { ADMIN_EMAIL } from "@/lib/auth/admin";
+import { isAuthorizedCron } from "@/lib/cron";
 
 /**
  * AI 생성 job 큐 drain(Vercel Cron). service-role 로 실행.
@@ -13,14 +14,8 @@ export const maxDuration = 300;
 
 const CLAIM = 2;
 
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
 export async function GET(request: Request) {
-  if (!authorized(request)) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   if (!hasAdminEnv() || !process.env.ANTHROPIC_API_KEY) {
@@ -48,10 +43,19 @@ export async function GET(request: Request) {
   const results: Array<{ id: string; status: string; error?: string }> = [];
 
   for (const job of jobs ?? []) {
-    await supabase
+    // 원자적 claim: pending 인 동안에만 running 으로 바꾼다. 크론이 겹쳐 돌거나 재시도가
+    // 들어와도 같은 job 을 두 번 생성하지 않는다(=> 중복 서적·중복 Claude 비용 방지).
+    const { data: claimed } = await supabase
       .from("ai_generation_jobs")
       .update({ status: "running", started_at: new Date().toISOString() })
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .eq("status", "pending")
+      .select("id");
+    if (!claimed || claimed.length === 0) {
+      results.push({ id: job.id, status: "skipped" });
+      continue;
+    }
+
     try {
       const bookId = await generateBookDraft(supabase, job, adminUser.id);
       await supabase

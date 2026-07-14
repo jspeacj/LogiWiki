@@ -46,9 +46,11 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 ## 보안: 3중 방어 + denormalized 카운터
 
 - 모든 쓰기는 **클라 검증 + 서버 액션(Zod) + DB(RLS/트리거/제약)** 3중.
-- `books.view_count`/`recommend_count` 는 **트리거/RPC 전용** — 서버 액션 허용 필드에서 제외(변조 방지).
-- 추천 sync 트리거·view RPC 는 `security definer`(RLS 우회 필요).
-- 퀴즈 정답/해설은 채점 전 클라 도달 금지(공개 serve 경로에서 컬럼 제외).
+- `books.view_count`/`recommend_count`·`posts.view_count` 는 **트리거/RPC 전용**. RLS UPDATE 정책은 "저자면 통과" 라 컬럼을 가릴 수 없으므로, `guard_*_managed_columns` 트리거(0008)가 non-admin 의 카운터·`author_id`·`published_at` 변경을 OLD 값으로 되돌린다.
+- 추천 sync 트리거·view RPC 는 `security definer`(RLS 우회 필요). 위 guard 트리거는 반대로 **invoker** 여야 한다 — `current_user` 로 "PostgREST 직접 호출(anon/authenticated)" 과 "definer 함수 내부(postgres)" 를 구분하기 때문.
+- 퀴즈 정답/해설은 채점 전 클라 도달 금지. **RLS 로는 못 막는다(행 단위)** — `quizzes.answer/explanation` 은 컬럼 레벨 GRANT 로 anon/authenticated 에서 제거(0008). 채점은 service-role 로만 정답을 읽는다(`getQuizForGrading`).
+- AI 채점은 유료 호출 → IP 레이트리밋(`lib/rate-limit.ts`) + 로그인 사용자 시간당 상한(`quiz_attempts` 트리거).
+- cron 엔드포인트는 운영에서 `CRON_SECRET` 없으면 **401**(fail-closed).
 - cron/AI 는 service-role 클라(유저세션 없음). `ANTHROPIC_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY` 는 절대 `NEXT_PUBLIC_` 아님.
 - **Admin SSOT**: `lib/auth/admin.ts::ADMIN_EMAIL` == DB `public.is_admin()` 이메일. 반드시 동기화.
 
@@ -57,7 +59,8 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 `supabase/migrations/NNNN_*.sql` — 멱등(`if not exists`/`create or replace`/`drop ... if exists`).
 - `0001_profiles` — profiles·is_admin·handle_new_user·닉네임 규칙 (Phase 1, 서적이 의존)
 - `0002_books` — books·chapters·발행 트리거·조회수 RPC·레이트리밋 (Phase 1)
-- `0003_community` 이후 — 게시판·댓글·추천·랭킹·퀴즈·AI 파이프라인 (Phase 2~3)
+- `0003_community` ~ `0007` — 게시판·댓글·추천·랭킹·퀴즈·AI 파이프라인 (Phase 2~3)
+- `0008_hardening` — 퀴즈 정답 컬럼 GRANT 차단 + 카운터 변조 방지 트리거 + 채점 레이트리밋 (**필수**)
 
 ## next.config — basePath + 구 서브도메인 308
 

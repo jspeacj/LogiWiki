@@ -112,21 +112,32 @@ export async function generateBookDraft(
 
   // 2) 챕터 본문(순차 생성)
   const chapters = outline.chapters ?? [];
+  // 챕터 slug 는 (book_id, slug) 유니크다. 모델이 비슷한 slug 를 두 번 내놓으면
+  // insert 가 23505 로 실패해 챕터가 통째로 유실되므로, 삽입 전에 유일하게 만든다.
+  const used = new Set<string>();
   for (let i = 0; i < chapters.length; i++) {
     const ch = chapters[i];
+    let slug = slugify(ch.slug || ch.title) || `chapter-${i + 1}`;
+    if (used.has(slug)) slug = `${slug}-${i + 1}`.slice(0, 120);
+    used.add(slug);
+
     const body = await claude.completeText({
       model: job.model,
       system: CHAPTER_SYSTEM,
       user: `서적: ${outline.title}\n챕터: ${ch.title}\n요약: ${ch.summary}\n언어: ${job.language}`,
       maxTokens: 8000,
     });
-    await supabase.from("chapters").insert({
+    const { error: chErr } = await supabase.from("chapters").insert({
       book_id: book.id,
-      slug: slugify(ch.slug || ch.title) || `chapter-${i + 1}`,
+      slug,
       title: ch.title,
       body,
       sort_order: (i + 1) * 1000,
     });
+    // 조용히 넘기면 목차가 빈 반쪽짜리 초안이 검수 큐에 올라온다 → job 을 실패시킨다.
+    if (chErr) {
+      throw new Error(`chapter insert 실패(${ch.title}): ${chErr.message}`);
+    }
   }
 
   return book.id;

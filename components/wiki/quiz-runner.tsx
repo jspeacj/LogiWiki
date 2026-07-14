@@ -16,14 +16,13 @@ const DIFFICULTY_LABEL: Record<string, string> = {
   hard: "어려움",
 };
 
-/** 퀴즈 문제 렌더링 + 채점 상태 머신. topic 은 "다음 문제" 리다이렉트/새로고침에 사용. */
-export function QuizRunner({
-  topic,
-  quiz,
-}: {
-  topic: string;
-  quiz: QuizPublic | null;
-}) {
+const ERROR_MESSAGE: Record<string, string> = {
+  RATE_LIMITED: "채점 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+  NOT_FOUND: "문제를 찾을 수 없습니다. 다음 문제로 넘어가 주세요.",
+};
+
+/** 퀴즈 문제 렌더링 + 채점 상태 머신. "다음 문제" 는 router.refresh() 로 새 문제를 받아온다. */
+export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
   const router = useRouter();
   const [selected, setSelected] = useState<string>("");
   const [text, setText] = useState("");
@@ -85,7 +84,7 @@ export function QuizRunner({
             <button
               key={choice.key}
               type="button"
-              disabled={!!result}
+              disabled={!!result?.ok}
               onClick={() => setSelected(choice.key)}
               className={cn(
                 "flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-70",
@@ -114,7 +113,7 @@ export function QuizRunner({
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          disabled={!!result}
+          disabled={!!result?.ok}
           rows={quiz.type === "fill_code" ? 4 : 6}
           placeholder={
             quiz.type === "fill_code" ? "빈 칸에 들어갈 코드를 입력하세요." : "답을 서술해 주세요."
@@ -122,7 +121,8 @@ export function QuizRunner({
         />
       )}
 
-      {!result && (
+      {/* 채점 실패(예: 레이트리밋)면 다시 시도할 수 있게 폼을 유지한다. */}
+      {!result?.ok && (
         <Button
           type="button"
           onClick={handleGrade}
@@ -170,11 +170,11 @@ export function QuizRunner({
 
       {result?.error && (
         <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
-          채점에 실패했습니다. 다시 시도해 주세요.
+          {ERROR_MESSAGE[result.error] ?? "채점에 실패했습니다. 다시 시도해 주세요."}
         </p>
       )}
 
-      {result && (
+      {result?.ok && (
         <Button type="button" variant="secondary" onClick={handleNext} fullWidth>
           <RefreshCw className="size-4" strokeWidth={2.2} />
           다음 문제

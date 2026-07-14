@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getQuizForGrading } from "@/lib/wiki/quizzes";
 import { gradeFreeText } from "@/lib/ai/grade";
+import { clientIp, consume } from "@/lib/rate-limit";
 
 export interface QuizGradeState {
   ok?: boolean;
@@ -20,6 +21,14 @@ const Schema = z.object({
   submitted: z.string().trim().min(1).max(4000),
 });
 
+/** AI 채점(유료 호출) 남용 방지: IP 당 10분에 20회. mcq·정확일치는 여기 걸리지 않는다. */
+const AI_LIMIT = 20;
+const AI_WINDOW_MS = 10 * 60 * 1000;
+
+function fail(error: string): QuizGradeState {
+  return { correct: null, score: 0, feedback: "", answer: "", explanation: "", error };
+}
+
 function normalizeCode(s: string): string {
   return s.replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -34,14 +43,10 @@ export async function gradeQuiz(
   submitted: string,
 ): Promise<QuizGradeState> {
   const parsed = Schema.safeParse({ quizId, submitted });
-  if (!parsed.success) {
-    return { correct: null, score: 0, feedback: "", answer: "", explanation: "", error: "VALIDATION" };
-  }
+  if (!parsed.success) return fail("VALIDATION");
 
   const quiz = await getQuizForGrading(parsed.data.quizId);
-  if (!quiz) {
-    return { correct: null, score: 0, feedback: "", answer: "", explanation: "", error: "NOT_FOUND" };
-  }
+  if (!quiz) return fail("NOT_FOUND");
 
   const sub = parsed.data.submitted;
   let correct: boolean | null = null;
@@ -58,7 +63,11 @@ export async function gradeQuiz(
     score = 1;
     feedback = "정답입니다!";
   } else {
-    // 서술형 또는 코드 불일치 → AI 채점.
+    // 서술형 또는 코드 불일치 → AI 채점(유료). IP 레이트리밋을 먼저 통과해야 한다.
+    const ip = await clientIp();
+    if (!consume(`quiz-ai:${ip}`, AI_LIMIT, AI_WINDOW_MS)) {
+      return fail("RATE_LIMITED");
+    }
     const g = await gradeFreeText({
       type: quiz.type === "fill_code" ? "fill_code" : "short",
       prompt: quiz.prompt,
@@ -73,13 +82,13 @@ export async function gradeQuiz(
     gradedBy = "ai";
   }
 
-  // 로그인 사용자면 시도 기록(RLS: 본인만).
+  // 로그인 사용자면 시도 기록(RLS: 본인만 / 트리거: 시간당 상한).
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) {
-    await supabase.from("quiz_attempts").insert({
+    const { error } = await supabase.from("quiz_attempts").insert({
       quiz_id: quiz.id,
       user_id: user.id,
       type: quiz.type,
@@ -89,6 +98,8 @@ export async function gradeQuiz(
       feedback,
       graded_by: gradedBy,
     });
+    // 기록 실패가 곧 한도 초과면 채점 결과도 주지 않는다(우회 경로가 되지 않도록).
+    if (error?.message?.includes("RATE_LIMITED")) return fail("RATE_LIMITED");
   }
 
   return {

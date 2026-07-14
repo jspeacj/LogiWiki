@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
 
 export type QuizType = "mcq" | "short" | "fill_code";
 
@@ -44,14 +45,20 @@ export async function getRandomQuiz(
     p_difficulty: difficulty ?? null,
   });
   if (error || !data || !Array.isArray(data) || data.length === 0) return null;
-  const q = data[0] as QuizPublic;
-  return q;
+  return data[0] as QuizPublic;
 }
 
-/** 채점용 정답 포함 조회(server-only, 클라이언트에 반환 금지). */
+/**
+ * 채점용 정답 포함 조회(server-only, 클라이언트에 반환 금지).
+ *
+ * 반드시 service_role 로 읽는다: anon/authenticated 롤은 0008 마이그레이션에서
+ * quizzes.answer/explanation 컬럼 SELECT 권한이 제거됐다(브라우저가 anon 키로
+ * PostgREST 를 직접 때려 정답을 긁어가는 것을 막기 위함). 즉 유저 세션 클라이언트로는
+ * 이 쿼리가 애초에 실패한다.
+ */
 export async function getQuizForGrading(id: string): Promise<QuizCanonical | null> {
-  const supabase = await getClient();
-  if (!supabase) return null;
+  if (!hasAdminEnv()) return null;
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("quizzes")
     .select(
