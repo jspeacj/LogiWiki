@@ -81,7 +81,47 @@ export async function createBook(
   if (error || !data) return { error: "WRITE_FAILED" };
 
   revalidatePath("/");
+  revalidatePath("/admin/books");
   return { ok: true, id: data.id, slug: data.slug };
+}
+
+const BookUpdateSchema = BookSchema.extend({ id: z.string().uuid() });
+
+/** 서적 메타(제목·설명·토픽·언어) 수정. 저자/관리자만(RLS 강제). */
+export async function updateBook(
+  _prev: WikiActionState,
+  formData: FormData,
+): Promise<WikiActionState> {
+  const session = await requireUser();
+  if (!session) return { error: "UNAUTHENTICATED" };
+
+  const parsed = BookUpdateSchema.safeParse({
+    id: formData.get("id"),
+    title: formData.get("title"),
+    description: formData.get("description") ?? "",
+    topic: formData.get("topic"),
+    language: formData.get("language") ?? "ko",
+  });
+  if (!parsed.success) return { error: "VALIDATION" };
+
+  // slug/status/카운터는 여기서 건드리지 않는다(발행은 setBookStatus, 카운터는 DB 소유).
+  const { data, error } = await session.supabase
+    .from("books")
+    .update({
+      title: parsed.data.title,
+      description: parsed.data.description,
+      topic: parsed.data.topic,
+      language: parsed.data.language,
+    })
+    .eq("id", parsed.data.id)
+    .select("slug")
+    .maybeSingle();
+  if (error || !data) return { error: "WRITE_FAILED" };
+
+  revalidatePath(`/admin/books/${parsed.data.id}`);
+  revalidatePath(`/book/${data.slug}`);
+  revalidatePath("/");
+  return { ok: true, id: parsed.data.id, slug: data.slug };
 }
 
 const ChapterSchema = z.object({
@@ -121,6 +161,30 @@ export async function upsertChapter(
   );
   if (error) return { error: "WRITE_FAILED" };
 
+  revalidatePath(`/admin/books/${parsed.data.bookId}`);
+  const slug = String(formData.get("bookSlug") ?? "");
+  if (slug) revalidatePath(`/book/${slug}`, "layout");
+  return { ok: true, slug: slugify(parsed.data.slug) };
+}
+
+/** 챕터 삭제(저자/관리자). */
+export async function deleteChapter(
+  chapterId: string,
+  bookId: string,
+  bookSlug?: string,
+): Promise<WikiActionState> {
+  const session = await requireUser();
+  if (!session) return { error: "UNAUTHENTICATED" };
+  if (!z.string().uuid().safeParse(chapterId).success) return { error: "VALIDATION" };
+
+  const { error } = await session.supabase
+    .from("chapters")
+    .delete()
+    .eq("id", chapterId);
+  if (error) return { error: "WRITE_FAILED" };
+
+  revalidatePath(`/admin/books/${bookId}`);
+  if (bookSlug) revalidatePath(`/book/${bookSlug}`, "layout");
   return { ok: true };
 }
 
@@ -137,11 +201,14 @@ export async function setBookStatus(
     .from("books")
     .update({ status })
     .eq("id", bookId);
+  // 발행 트리거(enforce_book_publish)가 거부하면 여기로 온다(AI 소스를 비관리자가 발행 등).
   if (error) return { error: "WRITE_FAILED" };
 
   revalidatePath("/");
-  if (slug) revalidatePath(`/book/${slug}`);
+  if (slug) revalidatePath(`/book/${slug}`, "layout");
   revalidatePath("/admin");
+  revalidatePath("/admin/books");
+  revalidatePath(`/admin/books/${bookId}`);
   return { ok: true };
 }
 

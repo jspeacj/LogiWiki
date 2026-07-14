@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowRight, PenLine } from "lucide-react";
 import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { topicLabel } from "@/lib/wiki/topics";
@@ -27,6 +29,8 @@ export default async function AdminPage() {
   if (!auth?.user || !isAdminEmail(auth.user.email)) redirect("/login");
 
   const { supabase } = auth;
+  // AI 생성은 유료 API. 키가 없으면 폼 대신 안내를 띄운다(cron 도 자동으로 skip 된다).
+  const aiEnabled = !!process.env.ANTHROPIC_API_KEY;
 
   const [{ data: drafts }, { data: jobs }] = await Promise.all([
     supabase
@@ -52,8 +56,52 @@ export default async function AdminPage() {
       </header>
 
       <section className="py-8">
+        <div className="mb-4 flex items-end justify-between">
+          <h2 className="text-lg font-semibold text-foreground">직접 저작</h2>
+          <Link
+            href="/admin/books"
+            className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+          >
+            서적 관리 <ArrowRight className="size-3.5" />
+          </Link>
+        </div>
+        <Link
+          href="/admin/books/new"
+          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.05]"
+        >
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand">
+            <PenLine className="size-5" strokeWidth={2.2} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold text-foreground">
+              새 서적 직접 작성
+            </span>
+            <span className="block text-sm text-muted">
+              마크다운으로 챕터를 쓰고, 검수한 뒤 발행합니다. 외부 API 비용이 들지 않습니다.
+            </span>
+          </span>
+        </Link>
+      </section>
+
+      <section className="border-t border-white/10 py-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">AI 초안 생성</h2>
-        <GenerateForm />
+        {aiEnabled ? (
+          <GenerateForm />
+        ) : (
+          <div className="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-6 py-8 text-sm text-muted">
+            <p className="font-medium text-muted-strong">
+              AI 초안 생성이 비활성화되어 있습니다.
+            </p>
+            <p className="mt-2 leading-relaxed">
+              <code className="rounded bg-white/[0.06] px-1.5 py-0.5 text-xs">
+                ANTHROPIC_API_KEY
+              </code>{" "}
+              가 설정되지 않았습니다. AI 생성은 사용량만큼 과금되는 유료 API를 사용하므로, 키를
+              넣기 전까지는 <strong>직접 저작</strong>으로 서적을 작성하세요. 키를 설정하면 이
+              폼이 자동으로 활성화됩니다.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="border-t border-white/10 py-8">
