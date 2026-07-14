@@ -6,8 +6,8 @@ import { CommunityHeader } from "@/components/community/community-header";
 import { CategoryFilter } from "@/components/community/category-filter";
 import { SearchBar } from "@/components/community/search-bar";
 import { PostList } from "@/components/community/post-list";
-import { PageSizeSelect } from "@/components/community/page-size-select";
-import { Pagination } from "@/components/community/pagination";
+import { PageSizeSelect } from "@/components/ui/page-size-select";
+import { Pagination } from "@/components/ui/pagination";
 
 // UGC — 색인 제외(AdSense 대량 동적/도어웨이 정책 회피).
 export const metadata: Metadata = {

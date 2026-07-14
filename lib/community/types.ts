@@ -86,14 +86,9 @@ export type CommentItem = {
   author: ProfileRef | null;
 };
 
-/** 페이지당 게시글 수: 기본 10, 사용자가 선택 가능. */
-export const DEFAULT_PAGE_SIZE = 10;
-export const PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50] as const;
-
-/** 허용된 페이지 크기로 정규화(아니면 기본값). */
-export function normalizePageSize(value: unknown): number {
-  const n = Number(value);
-  return (PAGE_SIZE_OPTIONS as readonly number[]).includes(n)
-    ? n
-    : DEFAULT_PAGE_SIZE;
-}
+/** 페이지네이션 규칙은 서적 목록과 공유한다(lib/pagination.ts). */
+export {
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+  normalizePageSize,
+} from "@/lib/pagination";

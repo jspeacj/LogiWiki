@@ -65,3 +65,11 @@ export interface ChapterDetail {
 /** 목록 정렬 옵션 */
 export const BOOK_SORTS = ["recent", "popular", "recommended"] as const;
 export type BookSort = (typeof BOOK_SORTS)[number];
+
+/** URL 쿼리(?sort=) → BookSort 정규화. 알 수 없는 값은 기본값(최신순). */
+export function parseBookSort(value: unknown): BookSort {
+  return typeof value === "string" &&
+    (BOOK_SORTS as readonly string[]).includes(value)
+    ? (value as BookSort)
+    : "recent";
+}

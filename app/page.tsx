@@ -78,10 +78,10 @@ export default async function HomePage() {
           <h2 className="text-lg font-semibold text-foreground">최신 서적</h2>
           {recent.total > recent.items.length && (
             <Link
-              href="/topic/java"
+              href="/books"
               className="inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
             >
-              전체 보기 <ArrowRight className="size-3.5" />
+              전체 보기 ({recent.total}) <ArrowRight className="size-3.5" />
             </Link>
           )}
         </div>

@@ -25,6 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
+    { url: `${SITE_URL}/books`, changeFrequency: "daily", priority: 0.9 },
     ...topicEntries,
     ...contentEntries,
   ];
