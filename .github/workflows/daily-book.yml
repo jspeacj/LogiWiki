@@ -252,6 +252,7 @@ jobs:
               if (!fs.existsSync(f)) { console.log('  ❌ 없음  ', c.slug); missing++; continue; }
               const body = fs.readFileSync(f, 'utf8');
               total += body.length;
+              diagrams += (body.match(/\`\`\`mermaid/g) ?? []).length;
               const code = body.includes('\`\`\`') ? '코드O' : '코드X';
               console.log('  ' + (body.trim().length >= 1200 ? '✅' : '⚠️ ') + ' ' +
                 String(body.trim().length).padStart(6) + '자  ' + code + '  ' + c.slug + ' — ' + c.title);
