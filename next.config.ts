@@ -7,6 +7,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   basePath: "/wiki",
 
+  // 챕터 본문 렌더(lib/wiki/markdown.ts)가 쓰는 두 패키지는 번들링에서 제외한다.
+  // shiki 는 문법/테마를 동적 import 로 로드하고, isomorphic-dompurify 는 jsdom 을
+  // 동적 require 로 끌어온다. 번들러가 이 동적 참조를 추적하지 못해 서버리스 런타임에서
+  // 모듈 로드가 통째로 실패했고, 그 결과 챕터 라우트가 데이터와 무관하게 500 이 났다.
+  // (존재하지 않는 slug 로 요청해도 500 → 모듈 초기화 단계의 실패라는 증거)
+  serverExternalPackages: ["shiki", "isomorphic-dompurify"],
+
   // 서버 액션(서적·게시글·댓글 작성 등)은 멀티존 정본 도메인에서 호출된다.
   // basePath rewrite 환경에서 Origin 검증을 통과시키려면 허용 오리진을 명시한다.
   experimental: {
