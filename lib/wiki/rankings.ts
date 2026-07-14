@@ -1,6 +1,5 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { getReadClient } from "@/lib/supabase/read";
 
 export type RankWindow = "week" | "month" | "year";
 const WINDOW_DAYS: Record<RankWindow, number> = { week: 7, month: 30, year: 365 };
@@ -19,15 +18,6 @@ export interface RankedBook {
   score: number;
 }
 
-async function getClient(): Promise<SupabaseClient | null> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return null;
-  }
-  return createClient();
-}
 
 export function isRankWindow(v: unknown): v is RankWindow {
   return v === "week" || v === "month" || v === "year";
@@ -67,7 +57,7 @@ export async function topBooks({
   sort = "score",
   limit = 20,
 }: TopBooksParams): Promise<RankedBook[]> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return [];
   const { data, error } = await supabase.rpc("top_books", {
     p_window_days: WINDOW_DAYS[window],

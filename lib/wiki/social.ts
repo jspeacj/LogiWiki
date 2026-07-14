@@ -1,20 +1,10 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { getReadClient } from "@/lib/supabase/read";
 import type { CommentItem } from "@/lib/community/types";
 
 /** 서적 댓글 아이템(구조는 커뮤니티 댓글과 동일). */
 export type BookCommentItem = CommentItem;
 
-async function getClient(): Promise<SupabaseClient | null> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return null;
-  }
-  return createClient();
-}
 
 type RawAuthor = { id: string; nickname: string; avatar_url: string | null };
 function normalizeAuthor(a: RawAuthor | RawAuthor[] | null): RawAuthor | null {
@@ -24,7 +14,7 @@ function normalizeAuthor(a: RawAuthor | RawAuthor[] | null): RawAuthor | null {
 
 /** 서적 댓글(오래된 순). 비회원도 열람 가능. */
 export async function getBookComments(bookId: string): Promise<BookCommentItem[]> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("book_comments")
@@ -59,7 +49,7 @@ export async function getBookComments(bookId: string): Promise<BookCommentItem[]
 
 /** 현재 로그인 사용자가 이 서적을 추천했는지. 비로그인/미설정이면 false. */
 export async function hasRecommended(bookId: string): Promise<boolean> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return false;
   const {
     data: { user },

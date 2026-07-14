@@ -1,6 +1,5 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { getReadClient } from "@/lib/supabase/read";
 import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
 
 export type QuizType = "mcq" | "short" | "fill_code";
@@ -23,22 +22,13 @@ export interface QuizCanonical extends QuizPublic {
   explanation: string;
 }
 
-async function getClient(): Promise<SupabaseClient | null> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return null;
-  }
-  return createClient();
-}
 
 /** 토픽별 랜덤 퀴즈(정답 제외). random_quiz RPC 는 answer/explanation 을 반환하지 않는다. */
 export async function getRandomQuiz(
   topic: string,
   difficulty?: string,
 ): Promise<QuizPublic | null> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return null;
   const { data, error } = await supabase.rpc("random_quiz", {
     p_topic: topic,

@@ -1,11 +1,8 @@
 import "server-only";
+import { getReadClient } from "@/lib/supabase/read";
 
 import { cache } from "react";
-import {
-  createClient as createSupabaseClient,
-  type SupabaseClient,
-} from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { ProfileRef } from "@/lib/auth/types";
 import type {
   BookDetail,
@@ -15,16 +12,6 @@ import type {
   ChapterNode,
 } from "./types";
 
-/** env 미설정(로컬 Supabase 없음) 시 null → 호출부는 빈 결과로 degrade. */
-async function getClient(): Promise<SupabaseClient | null> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return null;
-  }
-  return createClient();
-}
 
 /**
  * 쿼리 실패를 서버 로그에 남긴다.
@@ -127,7 +114,7 @@ export async function listBooks(
   params: ListBooksParams = {},
 ): Promise<ListBooksResult> {
   const { topic, q, sort = "recent", page = 1, perPage = 24 } = params;
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return { items: [], total: 0, page, perPage };
 
   const from = (page - 1) * perPage;
@@ -179,7 +166,7 @@ function buildTree(
 
 /** 서적의 목차 트리(본문 제외). */
 export async function getChapterTree(bookId: string): Promise<ChapterNode[]> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("chapters")
@@ -205,7 +192,7 @@ export const getBookBySlug = cache(async function getBookBySlug(
   slug: string,
   language = "ko",
 ): Promise<BookDetail | null> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("books")
@@ -230,7 +217,7 @@ export const getChapter = cache(async function getChapter(
   bookId: string,
   chapterSlug: string,
 ): Promise<ChapterDetail | null> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("chapters")
@@ -247,7 +234,7 @@ export const getChapter = cache(async function getChapter(
 export async function getPublishedBookSlugs(): Promise<
   Array<{ slug: string; language: string; updated_at: string }>
 > {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("books")
@@ -265,7 +252,7 @@ export async function getPublishedBookSlugs(): Promise<
 export async function getPublishedSitemapUrls(): Promise<
   Array<{ path: string; lastmod: string }>
 > {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("books")

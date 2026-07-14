@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   robots: NOINDEX ? { index: false, follow: false } : undefined,
 };
 
+// 토픽은 DB 가 원천(AI 가 새 토픽을 만들 수 있다). 정적으로 굳지 않도록 5분 ISR.
+export const revalidate = 300;
+
 export default async function QuizIndexPage() {
   const topics = await getTopics();
   return (

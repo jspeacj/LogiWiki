@@ -1,6 +1,5 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { getReadClient } from "@/lib/supabase/read";
 import {
   DEFAULT_PAGE_SIZE,
   type Category,
@@ -9,16 +8,6 @@ import {
   type PostListItem,
 } from "./types";
 
-/** env 미설정 시 null → 빈 결과로 degrade. */
-async function getClient(): Promise<SupabaseClient | null> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return null;
-  }
-  return createClient();
-}
 
 /** PostgREST or 필터를 깨뜨리는 문자를 제거(공백 치환). */
 function sanitize(q: string): string {
@@ -51,7 +40,7 @@ export async function listPosts({
 }: ListParams): Promise<ListResult> {
   const size = Math.max(1, perPage);
   const safePage = Math.max(1, page);
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return { items: [], total: 0, page: safePage, totalPages: 1 };
 
   const from = (safePage - 1) * size;
@@ -108,7 +97,7 @@ export async function listPosts({
 
 /** 단일 게시글(본문 포함). */
 export async function getPost(id: string): Promise<PostDetail | null> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("posts")
@@ -135,7 +124,7 @@ export async function getPost(id: string): Promise<PostDetail | null> {
 
 /** 게시글 댓글(오래된 순). */
 export async function getComments(postId: string): Promise<CommentItem[]> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("comments")
@@ -160,7 +149,7 @@ export async function getComments(postId: string): Promise<CommentItem[]> {
 
 /** 조회수 +1 (RPC). 실패해도 페이지 렌더는 막지 않는다. */
 export async function incrementViews(id: string): Promise<void> {
-  const supabase = await getClient();
+  const supabase = await getReadClient();
   if (!supabase) return;
   await supabase.rpc("increment_post_views", { p_id: id });
 }

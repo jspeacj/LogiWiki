@@ -27,8 +27,9 @@ export function Header() {
         <nav className="flex items-center gap-0.5 text-sm text-muted">
           {/* 교차 유입 허브 — 항상 첫 카테고리로 고정 */}
           <AppsMenu />
+          {/* 로고가 홈(/)이므로 여기는 전체 서적 목록으로 보낸다. */}
           <Link
-            href="/"
+            href="/books"
             className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground"
           >
             서적

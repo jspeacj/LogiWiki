@@ -108,6 +108,29 @@ function escapeHtml(s: string): string {
 }
 
 /**
+ * 렌더 결과 캐시(프로세스 메모리).
+ *
+ * shiki 하이라이트는 챕터 하나에 수백 ms 가 걸리는데, 챕터 본문은 관리자가 편집할 때만
+ * 바뀐다. 매 요청마다 다시 렌더할 이유가 없다. 키에 본문 해시를 쓰므로 내용이 바뀌면
+ * 자동으로 새 엔트리가 된다(수동 무효화 불필요).
+ *
+ * 서버리스 인스턴스마다 따로 존재하고 콜드 스타트마다 비지만, 인스턴스가 재사용되는
+ * 동안에는 그대로 적중한다. 상한을 둬 메모리 누수를 막는다.
+ */
+const RENDER_CACHE = new Map<string, string>();
+const RENDER_CACHE_MAX = 200;
+
+/** 본문 → 짧은 캐시 키(FNV-1a). 암호학적 용도가 아니라 동일성 판별용. */
+function hashKey(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return `${(h >>> 0).toString(36)}:${s.length}`;
+}
+
+/**
  * 챕터 본문 렌더. 실패해도 절대 throw 하지 않는다.
  *
  * 이 함수는 RSC 렌더 도중 호출되므로, 여기서 예외가 나면 챕터 페이지 전체가 500 이 된다.
@@ -115,12 +138,32 @@ function escapeHtml(s: string): string {
  * 평문(escape 된 마크다운)이라도 보여주는 편이 낫다.
  */
 export async function renderMarkdown(markdown: string): Promise<string> {
+  if (!markdown?.trim()) return "";
+
+  const key = hashKey(markdown);
+  const hit = RENDER_CACHE.get(key);
+  if (hit !== undefined) {
+    // LRU: 적중한 항목을 맨 뒤로 보내 오래된 것부터 밀려나게 한다.
+    RENDER_CACHE.delete(key);
+    RENDER_CACHE.set(key, hit);
+    return hit;
+  }
+
+  let html: string;
   try {
-    return await renderMarkdownUnsafe(markdown);
+    html = await renderMarkdownUnsafe(markdown);
   } catch (e) {
     console.error("[wiki/markdown] 렌더 실패 — 평문으로 폴백", e);
-    return `<pre class="whitespace-pre-wrap">${escapeHtml(markdown ?? "")}</pre>`;
+    // 실패 결과는 캐시하지 않는다(일시적 오류일 수 있으므로 다음 요청에서 재시도).
+    return `<pre class="whitespace-pre-wrap">${escapeHtml(markdown)}</pre>`;
   }
+
+  RENDER_CACHE.set(key, html);
+  if (RENDER_CACHE.size > RENDER_CACHE_MAX) {
+    const oldest = RENDER_CACHE.keys().next().value;
+    if (oldest !== undefined) RENDER_CACHE.delete(oldest);
+  }
+  return html;
 }
 
 async function renderMarkdownUnsafe(markdown: string): Promise<string> {

@@ -4,8 +4,14 @@ import { listBooks } from "@/lib/wiki/queries";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
 import { TopicGrid } from "@/components/wiki/topic-grid";
 
-// 서적 목록은 발행 상태를 실시간 반영해야 하므로 매 요청 렌더(발행 즉시 노출).
-export const dynamic = "force-dynamic";
+/**
+ * 홈은 60초 ISR.
+ *
+ * 매 요청 SSR(force-dynamic)이던 것을 바꿨다. 홈에 필요한 건 "발행된 서적 목록"이고,
+ * 발행 시점에 revalidatePath("/") 가 호출되므로 즉시 갱신된다. 조회수가 1분 늦게 반영되는
+ * 대신 대부분의 방문자가 캐시된 HTML 을 받는다(TTFB·DB 부하 감소).
+ */
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [popular, recent] = await Promise.all([

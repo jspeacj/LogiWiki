@@ -64,8 +64,14 @@ export function BookCard({ book }: { book: BookListItem }) {
   );
 }
 
-/** 빈 상태 플레이스홀더. */
-export function BookEmptyState({ className }: { className?: string }) {
+/** 빈 상태 플레이스홀더. 검색 결과 없음 등 상황별 문구를 넣을 수 있다. */
+export function BookEmptyState({
+  className,
+  message,
+}: {
+  className?: string;
+  message?: string;
+}) {
   return (
     <div
       className={cn(
@@ -74,7 +80,7 @@ export function BookEmptyState({ className }: { className?: string }) {
       )}
     >
       <p className="text-sm text-muted">
-        아직 발행된 서적이 없습니다. 검수를 거친 서적이 곧 공개됩니다.
+        {message ?? "아직 발행된 서적이 없습니다. 검수를 거친 서적이 곧 공개됩니다."}
       </p>
     </div>
   );

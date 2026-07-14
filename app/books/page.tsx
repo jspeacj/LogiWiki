@@ -7,12 +7,13 @@ import { normalizePage, normalizePageSize, totalPagesOf } from "@/lib/pagination
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
 import { BookListControls } from "@/components/wiki/book-list-controls";
+import { BookSearch } from "@/components/wiki/book-search";
 import { Pagination } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
-type Search = { sort?: string; page?: string; per?: string; topic?: string };
+type Search = { sort?: string; page?: string; per?: string; topic?: string; q?: string };
 
 export const metadata: Metadata = {
   title: "전체 학습 서적",
@@ -33,14 +34,16 @@ export default async function BooksPage({
   const sort = parseBookSort(query.sort);
   const perPage = normalizePageSize(query.per);
   const page = normalizePage(query.page);
+  const q = typeof query.q === "string" ? query.q.slice(0, 100) : "";
 
-  const { items, total } = await listBooks({ topic, sort, page, perPage });
+  const { items, total } = await listBooks({ topic, sort, page, perPage, q });
   const totalPages = totalPagesOf(total, perPage);
 
-  /** 토픽 칩 링크: 토픽만 갈아끼우고 정렬·표시개수는 유지, 페이지는 리셋. */
+  /** 토픽 칩 링크: 토픽만 갈아끼우고 검색어·정렬·표시개수는 유지, 페이지는 리셋. */
   function topicHref(next?: string): string {
     const params = new URLSearchParams();
     if (next) params.set("topic", next);
+    if (q) params.set("q", q);
     if (sort !== "recent") params.set("sort", sort);
     if (perPage !== 10) params.set("per", String(perPage));
     const qs = params.toString();
@@ -58,8 +61,12 @@ export default async function BooksPage({
         </p>
       </header>
 
+      <div className="mt-6">
+        <BookSearch initial={q} />
+      </div>
+
       {/* 토픽 필터 */}
-      <nav className="mt-6 flex flex-wrap items-center gap-1.5" aria-label="토픽">
+      <nav className="mt-4 flex flex-wrap items-center gap-1.5" aria-label="토픽">
         <Link
           href={topicHref()}
           className={cn(
@@ -94,7 +101,13 @@ export default async function BooksPage({
       <section className="py-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.length === 0 ? (
-            <BookEmptyState />
+            <BookEmptyState
+              message={
+                q
+                  ? `"${q}" 에 대한 검색 결과가 없습니다.`
+                  : undefined
+              }
+            />
           ) : (
             items.map((book) => <BookCard key={book.id} book={book} />)
           )}
