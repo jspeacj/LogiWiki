@@ -19,12 +19,26 @@ function isRateLimited(error: { message?: string } | null): boolean {
   return !!error?.message?.includes("RATE_LIMITED");
 }
 
-async function requireUser() {
+/**
+ * 서적 계열 쓰기는 전부 관리자 전용이다.
+ *
+ * 서버 액션은 UI 가 아니라 **공개 HTTP 엔드포인트**다. 예전엔 로그인만 확인해서,
+ * 아무나 가입 → createBook(source='human' 강제, 본인이 저자) → upsertChapter →
+ * setBookStatus('published') 순으로 호출하면 홈·목록·sitemap 에 즉시 게시됐다.
+ * RLS(books_update_own: 저자면 통과)도 발행 트리거(source='ai' 만 차단)도 human
+ * 소스는 그냥 통과시키므로 DB 도 막지 못했다 — "사람 검수 없이는 발행 없음" 이라는
+ * 이 플랫폼의 전제가 통째로 뚫리는 경로였다.
+ *
+ * 서적 작성 UI 는 /admin 에만 있으므로 일반 사용자가 이 액션을 부를 정당한 경로는 없다.
+ * DB 쪽도 0013 에서 "published 전이는 언제나 is_admin()" 으로 좁혔다(2중 방어).
+ */
+async function requireAdmin() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user ? { supabase, user } : null;
+  if (!user || !isAdminEmail(user.email)) return null;
+  return { supabase, user };
 }
 
 const BookSchema = z.object({
@@ -39,8 +53,8 @@ export async function createBook(
   _prev: WikiActionState,
   formData: FormData,
 ): Promise<WikiActionState> {
-  const session = await requireUser();
-  if (!session) return { error: "UNAUTHENTICATED" };
+  const session = await requireAdmin();
+  if (!session) return { error: "FORBIDDEN" };
 
   const parsed = BookSchema.safeParse({
     title: formData.get("title"),
@@ -84,8 +98,8 @@ export async function updateBook(
   _prev: WikiActionState,
   formData: FormData,
 ): Promise<WikiActionState> {
-  const session = await requireUser();
-  if (!session) return { error: "UNAUTHENTICATED" };
+  const session = await requireAdmin();
+  if (!session) return { error: "FORBIDDEN" };
 
   const parsed = BookUpdateSchema.safeParse({
     id: formData.get("id"),
@@ -130,8 +144,8 @@ export async function upsertChapter(
   _prev: WikiActionState,
   formData: FormData,
 ): Promise<WikiActionState> {
-  const session = await requireUser();
-  if (!session) return { error: "UNAUTHENTICATED" };
+  const session = await requireAdmin();
+  if (!session) return { error: "FORBIDDEN" };
 
   const parsed = ChapterSchema.safeParse({
     bookId: formData.get("bookId"),
@@ -172,8 +186,8 @@ export async function deleteChapter(
   bookId: string,
   bookSlug?: string,
 ): Promise<WikiActionState> {
-  const session = await requireUser();
-  if (!session) return { error: "UNAUTHENTICATED" };
+  const session = await requireAdmin();
+  if (!session) return { error: "FORBIDDEN" };
   if (!z.string().uuid().safeParse(chapterId).success) return { error: "VALIDATION" };
 
   const { error } = await session.supabase
@@ -187,20 +201,29 @@ export async function deleteChapter(
   return { ok: true };
 }
 
-/** 서적 상태 전이(draft→in_review→published→archived). RLS+트리거가 최종 강제. */
+// 서버 액션 인자는 TS 타입이 아니라 네트워크 입력이다 — 런타임에서 좁힌다.
+const StatusSchema = z.object({
+  bookId: z.string().uuid(),
+  status: z.enum(["draft", "in_review", "published", "archived"]),
+});
+
+/** 서적 상태 전이(draft→in_review→published→archived). 관리자 전용 + 트리거가 최종 강제. */
 export async function setBookStatus(
   bookId: string,
   status: "draft" | "in_review" | "published" | "archived",
   slug?: string,
 ): Promise<WikiActionState> {
-  const session = await requireUser();
-  if (!session) return { error: "UNAUTHENTICATED" };
+  const session = await requireAdmin();
+  if (!session) return { error: "FORBIDDEN" };
+
+  const parsed = StatusSchema.safeParse({ bookId, status });
+  if (!parsed.success) return { error: "VALIDATION" };
 
   const { error } = await session.supabase
     .from("books")
-    .update({ status })
-    .eq("id", bookId);
-  // 발행 트리거(enforce_book_publish)가 거부하면 여기로 온다(AI 소스를 비관리자가 발행 등).
+    .update({ status: parsed.data.status })
+    .eq("id", parsed.data.bookId);
+  // 발행 트리거(enforce_book_publish)가 거부하면 여기로 온다(비관리자의 published 전이).
   if (error) return { error: "WRITE_FAILED" };
 
   revalidatePath("/");
@@ -211,14 +234,12 @@ export async function setBookStatus(
   return { ok: true };
 }
 
-/** 서적 삭제(저자/관리자). */
+/** 서적 삭제(관리자 전용). */
 export async function deleteBook(bookId: string): Promise<WikiActionState> {
-  const session = await requireUser();
-  if (!session) return { error: "UNAUTHENTICATED" };
-  if (!isAdminEmail(session.user.email)) {
-    // 저자 본인 삭제는 RLS 로 걸러지지만, 관리자 화면 전용이므로 관리자만 허용.
-    return { error: "FORBIDDEN" };
-  }
+  const session = await requireAdmin();
+  if (!session) return { error: "FORBIDDEN" };
+  if (!z.string().uuid().safeParse(bookId).success) return { error: "VALIDATION" };
+
   const { error } = await session.supabase.from("books").delete().eq("id", bookId);
   if (error) return { error: "WRITE_FAILED" };
   revalidatePath("/admin");

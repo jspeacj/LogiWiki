@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, PenLine } from "lucide-react";
 import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getTopicMap, getTopics } from "@/lib/wiki/topics-db";
 import { canonical } from "@/lib/site";
 import { GenerateForm } from "@/components/admin/generate-form";
@@ -48,7 +49,12 @@ export default async function AdminPage() {
       .select("id, slug, title, topic, source, status, created_at")
       .in("status", ["draft", "in_review"])
       .order("created_at", { ascending: false }),
-    supabase
+    // 퀴즈 정답/해설은 0008 에서 anon·authenticated 롤의 컬럼 GRANT 를 뺐다.
+    // GRANT 는 롤 단위라 **관리자 세션(authenticated)으로도 읽히지 않는다** — 유저
+    // 클라이언트로 조회하면 권한 에러가 나고 검수 패널이 조용히 비어버린다.
+    // service-role 로 읽는다(위에서 isAdminEmail 게이트를 이미 통과했다).
+    // ⚠️ 여기서 컬럼 GRANT 를 되돌리면 anon 이 정답을 긁어갈 수 있다 — 그 방향은 금지.
+    createAdminClient()
       .from("quizzes")
       .select("id, topic, difficulty, prompt, choices, answer, explanation, created_at")
       .eq("status", "draft")

@@ -19,6 +19,9 @@ const DIFFICULTY_LABEL: Record<string, string> = {
 const ERROR_MESSAGE: Record<string, string> = {
   RATE_LIMITED: "채점 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   NOT_FOUND: "문제를 찾을 수 없습니다. 다음 문제로 넘어가 주세요.",
+  // 서술형·코드 문제는 AI 채점(유료)이라 로그인한 사용자만 쓸 수 있다.
+  // 객관식은 로그인 없이도 즉시 채점된다.
+  LOGIN_REQUIRED: "서술형 문제 채점은 로그인이 필요합니다. 객관식은 로그인 없이 풀 수 있어요.",
 };
 
 /** 퀴즈 문제 렌더링 + 채점 상태 머신. "다음 문제" 는 router.refresh() 로 새 문제를 받아온다. */

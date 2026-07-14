@@ -25,6 +25,13 @@ const Schema = z.object({
 const AI_LIMIT = 20;
 const AI_WINDOW_MS = 10 * 60 * 1000;
 
+/**
+ * 사용자별 AI 채점 상한(호출 **전에** 검사). IP 리미터는 인메모리라 인스턴스마다
+ * 리셋되므로 단독으로는 과금을 못 막는다 — DB 로 세는 이 상한이 실질 방어선이다.
+ */
+const AI_USER_LIMIT = 30;
+const AI_USER_WINDOW_MS = 60 * 60 * 1000;
+
 function fail(error: string): QuizGradeState {
   return { correct: null, score: 0, feedback: "", answer: "", explanation: "", error };
 }
@@ -63,7 +70,28 @@ export async function gradeQuiz(
     score = 1;
     feedback = "정답입니다!";
   } else {
-    // 서술형 또는 코드 불일치 → AI 채점(유료). IP 레이트리밋을 먼저 통과해야 한다.
+    // 서술형 또는 코드 불일치 → AI 채점(유료). 여기서부터가 돈이 나가는 구간이다.
+    //
+    // 예전엔 비로그인도 이 경로를 탈 수 있었고, 방어는 인메모리 IP 리미터 하나뿐이었다.
+    // 그 Map 은 서버리스 인스턴스마다 따로 존재하고 콜드스타트마다 비므로 실효 상한이
+    // "20회 × 인스턴스 수" 로 늘어난다. 로그인 사용자의 시간당 상한(quiz_attempts 트리거)은
+    // **AI 호출이 끝난 뒤** INSERT 시점에야 걸려서 과금을 못 막았다.
+    // → (1) 로그인 필수 (2) 호출 **전에** 사용자별 시도 횟수를 세어 차단.
+    const gate = await createClient();
+    const {
+      data: { user: gradeUser },
+    } = await gate.auth.getUser();
+    if (!gradeUser) return fail("LOGIN_REQUIRED");
+
+    const since = new Date(Date.now() - AI_USER_WINDOW_MS).toISOString();
+    const { count } = await gate
+      .from("quiz_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", gradeUser.id)
+      .eq("graded_by", "ai")
+      .gte("created_at", since);
+    if ((count ?? 0) >= AI_USER_LIMIT) return fail("RATE_LIMITED");
+
     const ip = await clientIp();
     if (!consume(`quiz-ai:${ip}`, AI_LIMIT, AI_WINDOW_MS)) {
       return fail("RATE_LIMITED");
