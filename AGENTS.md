@@ -62,6 +62,7 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - `0003_community` ~ `0007` — 게시판·댓글·추천·랭킹·퀴즈·AI 파이프라인 (Phase 2~3)
 - `0008_hardening` — 퀴즈 정답 컬럼 GRANT 차단 + 카운터 변조 방지 트리거 + 채점 레이트리밋 (**필수**)
 - `0009_views_fix` — 조회수 일별 롤업 RPC 재적용 + `top_books` security definer + `book_view_daily` 쓰기 차단 (**필수**)
+- `0010_rankings_sort` — `top_books` 에 `p_sort`(종합/조회수/추천수) 추가. 3인자 구버전은 DROP(오버로드 모호성 방지)
 
 ## Vercel cron 제약 (Hobby)
 
