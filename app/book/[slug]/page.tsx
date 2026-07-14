@@ -6,7 +6,6 @@ import { BookOpen, CalendarDays, Eye, Sparkles, ThumbsUp, User } from "lucide-re
 import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
 import { getBookComments, hasRecommended } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
-import { topicLabel } from "@/lib/wiki/topics";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { RecommendButton } from "@/components/wiki/recommend-button";
@@ -28,7 +27,7 @@ export async function generateMetadata({
   const indexable = !NOINDEX && book.status === "published";
   return {
     title: book.title,
-    description: book.description || `${topicLabel(book.topic)} 학습 서적 — ${book.title}`,
+    description: book.description || `${book.topic_label} 학습 서적 — ${book.title}`,
     alternates: { canonical: canonical(`book/${book.slug}`) },
     robots: indexable ? undefined : { index: false, follow: false },
     openGraph: {
@@ -76,14 +75,14 @@ export default async function BookLandingPage({
         <Link href="/" className="hover:text-foreground">서적</Link>
         <span className="mx-1.5">/</span>
         <Link href={`/topic/${book.topic}`} className="hover:text-foreground">
-          {topicLabel(book.topic)}
+          {book.topic_label}
         </Link>
       </nav>
 
       <header className="border-b border-white/10 pb-8">
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand">
-            {topicLabel(book.topic)}
+            {book.topic_label}
           </span>
           {book.source === "ai" && (
             <span className="inline-flex items-center gap-1 rounded-full bg-brand-2/15 px-2 py-0.5 text-[11px] font-medium text-brand-2">
@@ -167,7 +166,7 @@ function BookJsonLd({ book }: { book: Awaited<ReturnType<typeof getBookBySlug>> 
     description: book.description,
     url,
     inLanguage: book.language,
-    about: topicLabel(book.topic),
+    about: book.topic_label,
     provider: {
       "@type": "Organization",
       name: "LogiWiki",

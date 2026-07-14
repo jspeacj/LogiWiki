@@ -63,6 +63,27 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - `0008_hardening` — 퀴즈 정답 컬럼 GRANT 차단 + 카운터 변조 방지 트리거 + 채점 레이트리밋 (**필수**)
 - `0009_views_fix` — 조회수 일별 롤업 RPC 재적용 + `top_books` security definer + `book_view_daily` 쓰기 차단 (**필수**)
 - `0010_rankings_sort` — `top_books` 에 `p_sort`(종합/조회수/추천수) 추가. 3인자 구버전은 DROP(오버로드 모호성 방지)
+- `0011_dynamic_topics` — **토픽을 DB 로 이전**(`public.topics`) + AI 자동 생성 설정(`ai_settings`) (**필수**)
+
+## 토픽 SSOT = DB (`public.topics`)
+
+토픽은 더 이상 코드 상수가 아니다. `lib/wiki/topics.ts` 는 **시드 + 폴백**일 뿐이고, 런타임 원천은 DB다(`lib/wiki/topics-db.ts`). AI 자동 생성이 기존에 없던 분야를 다루면 토픽 행을 새로 만들기 때문.
+
+- 서버: `getTopics()` / `getTopicBySlug()` / `topicExists()` (React `cache` — 요청당 1회)
+- 클라이언트 컴포넌트는 토픽을 **props 로 주입받는다**(DB 를 직접 못 읽으므로).
+- 서적 카드/상세의 라벨은 `books` 조회 시 `topic_ref:topics!books_topic_fkey(label)` 로 조인해 온다(`book.topic_label`).
+- 서버 액션의 토픽 검증은 `z.enum` 이 아니라 `topicExists()` + DB FK.
+- `accent` 는 Tailwind 정적 리터럴만 허용(DB check 제약) — 스캐너가 클래스를 생성해야 하므로.
+
+## AI 자동 생성 (매일 cron, 기본 OFF)
+
+`/api/ai/generate` 가 하루 1회 실행되며 **계획 → 생성** 2단계로 동작한다.
+1. `ai_settings`(관리자 화면에서 설정) 를 읽어 오늘 만들 권수를 정하고, Claude 에게 주제를 제안받아 job 을 큐에 넣는다(`lib/ai/plan.ts`). 없는 토픽이면 `topics` 행을 새로 만든다(`source='ai'`).
+2. pending job 을 claim → 초안 생성 → `books`/`chapters` 삽입.
+
+**결과는 언제나 `status='draft'`. 자동 발행 없음 — 관리자 승인 후에만 발행된다.**
+
+⚠️ **유료 API.** `ANTHROPIC_API_KEY` 가 없거나 `ai_settings.enabled=false` 면 아무 것도 하지 않는다(비용 0). "검색량이 많은 주제"는 실제 검색량 통계가 아니라 **모델의 판단**이다(무료로 얻을 수 있는 검색량 데이터가 없음).
 
 ## Vercel cron 제약 (Hobby)
 

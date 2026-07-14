@@ -22,6 +22,8 @@ export interface BookListItem {
   title: string;
   description: string;
   topic: string;
+  /** topics 테이블에서 조인한 표시용 라벨(없으면 slug). AI 신규 토픽도 정확히 표기된다. */
+  topic_label: string;
   source: BookSource;
   status: BookStatus;
   view_count: number;

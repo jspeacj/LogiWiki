@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { canonical } from "@/lib/site";
+import { getTopics } from "@/lib/wiki/topics-db";
 import { BookForm } from "@/components/admin/book-form";
 import { ChapterEditor, type ChapterRow } from "@/components/admin/chapter-editor";
 import { PublishBar } from "@/components/admin/publish-bar";
@@ -37,7 +38,7 @@ export default async function EditBookPage({
   const auth = await getServerAuth();
   if (!auth?.user || !isAdminEmail(auth.user.email)) redirect("/login");
 
-  const [{ data: book }, { data: chapterRows }] = await Promise.all([
+  const [{ data: book }, { data: chapterRows }, topics] = await Promise.all([
     auth.supabase
       .from("books")
       .select("id, slug, title, description, topic, language, status")
@@ -48,6 +49,7 @@ export default async function EditBookPage({
       .select("id, slug, title, body, sort_order")
       .eq("book_id", id)
       .order("sort_order", { ascending: true }),
+    getTopics(),
   ]);
 
   if (!book) notFound();
@@ -76,6 +78,7 @@ export default async function EditBookPage({
       <section className="border-t border-white/10 py-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">서적 정보</h2>
         <BookForm
+          topics={topics}
           book={{
             id: typed.id,
             title: typed.title,

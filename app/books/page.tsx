@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { listBooks } from "@/lib/wiki/queries";
 import { parseBookSort } from "@/lib/wiki/types";
-import { TOPICS, isTopic } from "@/lib/wiki/topics";
+import { getTopics, topicExists } from "@/lib/wiki/topics-db";
 import { normalizePage, normalizePageSize, totalPagesOf } from "@/lib/pagination";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
@@ -28,7 +28,8 @@ export default async function BooksPage({
 }) {
   const query = await searchParams;
 
-  const topic = typeof query.topic === "string" && isTopic(query.topic) ? query.topic : undefined;
+  const topics = await getTopics();
+  const topic = (await topicExists(query.topic)) ? (query.topic as string) : undefined;
   const sort = parseBookSort(query.sort);
   const perPage = normalizePageSize(query.per);
   const page = normalizePage(query.page);
@@ -70,7 +71,7 @@ export default async function BooksPage({
         >
           전체
         </Link>
-        {TOPICS.map((t) => (
+        {topics.map((t) => (
           <Link
             key={t.slug}
             href={topicHref(t.slug)}

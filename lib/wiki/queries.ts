@@ -63,21 +63,32 @@ function normalizeAuthor(embed: unknown): ProfileRef | null {
  * 쿼리를 **거부**한다. 그러면 목록/상세가 조용히 빈 결과가 되어 404 로 보인다.
  */
 const BOOK_LIST_COLUMNS =
-  "id, slug, language, title, description, topic, source, status, view_count, recommend_count, cover_url, published_at, created_at, updated_at, author:profiles!books_author_id_fkey(id, nickname, avatar_url)";
+  "id, slug, language, title, description, topic, source, status, view_count, recommend_count, cover_url, published_at, created_at, updated_at, author:profiles!books_author_id_fkey(id, nickname, avatar_url), topic_ref:topics!books_topic_fkey(label)";
 
 /** ilike 패턴 특수문자 이스케이프(%, _, \). */
 function escapeLike(input: string): string {
   return input.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
 
+/** topics 임베드 → 라벨. 없으면 슬러그 그대로(폴백). */
+function topicLabelFrom(embed: unknown, slug: string): string {
+  const row = Array.isArray(embed) ? embed[0] : embed;
+  if (row && typeof row === "object" && typeof (row as { label?: unknown }).label === "string") {
+    return (row as { label: string }).label;
+  }
+  return slug;
+}
+
 function mapBook(row: Record<string, unknown>): BookListItem {
+  const topic = row.topic as string;
   return {
     id: row.id as string,
     slug: row.slug as string,
     language: row.language as BookListItem["language"],
     title: row.title as string,
     description: (row.description as string) ?? "",
-    topic: row.topic as string,
+    topic,
+    topic_label: topicLabelFrom(row.topic_ref, topic),
     source: row.source as BookListItem["source"],
     status: row.status as BookListItem["status"],
     view_count: (row.view_count as number) ?? 0,

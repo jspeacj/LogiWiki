@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
-import { TOPIC_SLUGS } from "@/lib/wiki/topics";
+import { topicExists } from "@/lib/wiki/topics-db";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 import { MODEL_DRAFT } from "@/lib/ai/claude";
 
@@ -22,7 +22,7 @@ async function requireAdmin() {
 const DAILY_CAP = 5;
 
 const GenSchema = z.object({
-  topic: z.enum(TOPIC_SLUGS as [string, ...string[]]),
+  topic: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{0,38}$/),
   subtopic: z.string().trim().min(1).max(200),
   language: z.enum(BOOK_LANGUAGES as unknown as [string, ...string[]]).default("ko"),
 });
@@ -41,6 +41,7 @@ export async function enqueueGeneration(
     language: formData.get("language") ?? "ko",
   });
   if (!parsed.success) return { error: "VALIDATION" };
+  if (!(await topicExists(parsed.data.topic))) return { error: "VALIDATION" };
 
   // 일일 캡(대규모 콘텐츠 남용 억제).
   const { data: todayCount } = await admin.supabase.rpc("ai_jobs_today");
@@ -87,6 +88,54 @@ export async function rejectBook(bookId: string): Promise<AdminActionState> {
     .from("books")
     .update({ status: "archived" })
     .eq("id", bookId);
+  if (error) return { error: "WRITE_FAILED" };
+
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+// ── AI 자동 생성 설정(매일 cron 이 읽는다) ──────────────────────────────────
+export interface AiSettings {
+  enabled: boolean;
+  daily_book_count: number;
+  language: string;
+}
+
+const SettingsSchema = z.object({
+  enabled: z.coerce.boolean(),
+  // 0 = 자동 생성 안 함. 상한 5 는 DB check 제약과 일치시킨다(대규모 생성 억제).
+  daily_book_count: z.coerce.number().int().min(0).max(DAILY_CAP),
+  language: z.enum(BOOK_LANGUAGES as unknown as [string, ...string[]]).default("ko"),
+});
+
+/**
+ * 자동 생성 설정 저장(관리자 전용).
+ * ⚠️ enabled=true + daily_book_count>0 이면 **매일 유료 Claude API 를 호출한다.**
+ * ANTHROPIC_API_KEY 가 없으면 cron 이 그대로 스킵하므로 비용은 발생하지 않는다.
+ */
+export async function updateAiSettings(
+  _prev: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  const admin = await requireAdmin();
+  if (!admin) return { error: "FORBIDDEN" };
+
+  const parsed = SettingsSchema.safeParse({
+    enabled: formData.get("enabled") === "on",
+    daily_book_count: formData.get("daily_book_count") ?? 0,
+    language: formData.get("language") ?? "ko",
+  });
+  if (!parsed.success) return { error: "VALIDATION" };
+
+  const { error } = await admin.supabase
+    .from("ai_settings")
+    .update({
+      enabled: parsed.data.enabled,
+      daily_book_count: parsed.data.daily_book_count,
+      language: parsed.data.language,
+      updated_by: admin.user.id,
+    })
+    .eq("id", true);
   if (error) return { error: "WRITE_FAILED" };
 
   revalidatePath("/admin");

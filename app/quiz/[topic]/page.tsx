@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getRandomQuiz } from "@/lib/wiki/quizzes";
-import { isTopic, topicLabel } from "@/lib/wiki/topics";
+import { getTopicBySlug } from "@/lib/wiki/topics-db";
 import { canonical } from "@/lib/site";
 import { QuizRunner } from "@/components/wiki/quiz-runner";
 
@@ -15,12 +15,13 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { topic } = await params;
-  if (!isTopic(topic)) {
+  const meta = await getTopicBySlug(topic);
+  if (!meta) {
     return { title: "토픽을 찾을 수 없습니다", robots: { index: false, follow: false } };
   }
   return {
-    title: `${topicLabel(topic)} 퀴즈`,
-    description: `${topicLabel(topic)} 랜덤 코딩 퀴즈를 풀고 AI 채점·해설을 받아보세요.`,
+    title: `${meta.label} 퀴즈`,
+    description: `${meta.label} 랜덤 코딩 퀴즈를 풀고 AI 채점·해설을 받아보세요.`,
     alternates: { canonical: canonical(`quiz/${topic}`) },
     robots: { index: false, follow: false },
   };
@@ -32,7 +33,8 @@ export default async function QuizTopicPage({
   params: Promise<Params>;
 }) {
   const { topic } = await params;
-  if (!isTopic(topic)) notFound();
+  const meta = await getTopicBySlug(topic);
+  if (!meta) notFound();
 
   const quiz = await getRandomQuiz(topic);
 
@@ -41,7 +43,7 @@ export default async function QuizTopicPage({
       <header className="border-b border-white/10 pb-6">
         <p className="text-sm font-semibold text-brand">퀴즈</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          {topicLabel(topic)} 퀴즈
+          {meta.label} 퀴즈
         </h1>
       </header>
 

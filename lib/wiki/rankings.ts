@@ -1,7 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { isTopic } from "@/lib/wiki/topics";
 
 export type RankWindow = "week" | "month" | "year";
 const WINDOW_DAYS: Record<RankWindow, number> = { week: 7, month: 30, year: 365 };
@@ -43,9 +42,15 @@ export function parseRankSort(v: unknown): RankSort {
   return isRankSort(v) ? v : "score";
 }
 
-/** URL 쿼리(?topic=)를 정규화. 'all'/미지정/알 수 없는 토픽 → undefined(전체). */
+/**
+ * URL 쿼리(?topic=) 정규화 — 슬러그 형식만 검사한다.
+ * 토픽은 이제 DB 가 원천이므로 코드에서 목록을 알 수 없다. 존재하지 않는 슬러그면
+ * 랭킹 결과가 빈 목록으로 나온다(잘못된 값으로 SQL 을 때리지 않도록 형식만 막는다).
+ */
 export function parseRankTopic(v: unknown): string | undefined {
-  return typeof v === "string" && isTopic(v) ? v : undefined;
+  return typeof v === "string" && /^[a-z0-9][a-z0-9-]{0,38}$/.test(v)
+    ? v
+    : undefined;
 }
 
 export interface TopBooksParams {

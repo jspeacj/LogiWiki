@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { TOPICS } from "@/lib/wiki/topics";
+import { getTopics } from "@/lib/wiki/topics-db";
 import { cn } from "@/lib/utils";
 
-/** 토픽 진입 그리드 — 홈/토픽 인덱스에서 재사용. topic 은 facet(허브 진입점). */
-export function TopicGrid({ className }: { className?: string }) {
+/**
+ * 토픽 진입 그리드 — 홈/토픽 인덱스에서 재사용. topic 은 facet(허브 진입점).
+ * 토픽 목록은 DB 가 원천이므로 AI 가 새로 만든 토픽도 자동으로 노출된다.
+ */
+export async function TopicGrid({ className }: { className?: string }) {
+  const topics = await getTopics();
+
   return (
     <div
       className={cn(
@@ -11,7 +16,7 @@ export function TopicGrid({ className }: { className?: string }) {
         className,
       )}
     >
-      {TOPICS.map((topic) => (
+      {topics.map((topic) => (
         <Link
           key={topic.slug}
           href={`/topic/${topic.slug}`}

@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBook, updateBook, type WikiActionState } from "@/app/actions/wiki";
-import { TOPICS } from "@/lib/wiki/topics";
+import type { Topic } from "@/lib/wiki/topics";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ export interface BookFormValues {
  * book 이 없으면 생성(성공 시 편집 화면으로 이동), 있으면 수정.
  * slug·status·조회수/추천수는 여기서 다루지 않는다(발행은 PublishBar, 카운터는 DB 소유).
  */
-export function BookForm({ book }: { book?: BookFormValues }) {
+export function BookForm({ book, topics }: { book?: BookFormValues; topics: Topic[] }) {
   const router = useRouter();
   const isEdit = !!book;
   const [state, action, pending] = useActionState<WikiActionState, FormData>(
@@ -78,9 +78,9 @@ export function BookForm({ book }: { book?: BookFormValues }) {
           <Select
             id="topic"
             name="topic"
-            defaultValue={book?.topic ?? TOPICS[0]?.slug}
+            defaultValue={book?.topic ?? topics[0]?.slug}
           >
-            {TOPICS.map((topic) => (
+            {topics.map((topic) => (
               <option key={topic.slug} value={topic.slug}>
                 {topic.label}
               </option>

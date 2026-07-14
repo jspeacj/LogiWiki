@@ -10,7 +10,7 @@ import {
   type RankSort,
   type RankWindow,
 } from "@/lib/wiki/rankings";
-import { TOPICS, topicLabel } from "@/lib/wiki/topics";
+import { getTopicMap, getTopics } from "@/lib/wiki/topics-db";
 import { canonical, NOINDEX } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -78,7 +78,12 @@ export default async function RankingsPage({
   const sort = parseRankSort(query.sort);
   const topic = parseRankTopic(query.topic);
 
-  const books = await topBooks({ window, topic, sort });
+  const [books, topics, topicMap] = await Promise.all([
+    topBooks({ window, topic, sort }),
+    getTopics(),
+    getTopicMap(),
+  ]);
+  const labelOf = (slug: string) => topicMap[slug]?.label ?? slug;
   const activeSort = SORT_TABS.find((t) => t.value === sort)!;
 
   return (
@@ -86,7 +91,7 @@ export default async function RankingsPage({
       <header className="border-b border-white/10 pb-6">
         <p className="text-sm font-semibold text-brand">랭킹</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          {WINDOW_LABEL[window]} {topic ? `${topicLabel(topic)} ` : ""}인기 서적 랭킹
+          {WINDOW_LABEL[window]} {topic ? `${labelOf(topic)} ` : ""}인기 서적 랭킹
         </h1>
         <p className="mt-3 max-w-2xl text-muted">{activeSort.desc} 기준입니다.</p>
       </header>
@@ -152,7 +157,7 @@ export default async function RankingsPage({
         >
           전체
         </Link>
-        {TOPICS.map((t) => (
+        {topics.map((t) => (
           <Link
             key={t.slug}
             href={rankUrl(window, sort, t.slug)}
@@ -173,7 +178,7 @@ export default async function RankingsPage({
           <div className="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-6 py-16 text-center">
             <p className="text-sm text-muted">
               {topic
-                ? `${topicLabel(topic)} 토픽에는 아직 랭킹 데이터가 없습니다.`
+                ? `${labelOf(topic)} 토픽에는 아직 랭킹 데이터가 없습니다.`
                 : "아직 랭킹 데이터가 없습니다."}
             </p>
             {topic && (
@@ -208,7 +213,7 @@ export default async function RankingsPage({
                       href={rankUrl(window, sort, book.topic)}
                       className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand hover:bg-brand/25"
                     >
-                      {topicLabel(book.topic)}
+                      {labelOf(book.topic)}
                     </Link>
                   </div>
                   <Link

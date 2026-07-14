@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/auth/admin";
-import { TOPIC_SLUGS } from "@/lib/wiki/topics";
+import { topicExists } from "@/lib/wiki/topics-db";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 
 export type WikiActionState = {
@@ -41,7 +41,7 @@ function slugify(input: string): string {
 const BookSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).default(""),
-  topic: z.enum(TOPIC_SLUGS as [string, ...string[]]),
+  topic: z.string().trim().regex(/^[a-z0-9][a-z0-9-]{0,38}$/),
   language: z.enum(BOOK_LANGUAGES as unknown as [string, ...string[]]).default("ko"),
 });
 
@@ -60,6 +60,8 @@ export async function createBook(
     language: formData.get("language") ?? "ko",
   });
   if (!parsed.success) return { error: "VALIDATION" };
+  // 토픽은 DB(public.topics)가 원천. FK 가 최종 방어선이지만 여기서 명확한 에러를 준다.
+  if (!(await topicExists(parsed.data.topic))) return { error: "VALIDATION" };
 
   const slug = `${slugify(parsed.data.title)}-${Math.random().toString(36).slice(2, 8)}`;
   const { data, error } = await session.supabase
@@ -103,6 +105,7 @@ export async function updateBook(
     language: formData.get("language") ?? "ko",
   });
   if (!parsed.success) return { error: "VALIDATION" };
+  if (!(await topicExists(parsed.data.topic))) return { error: "VALIDATION" };
 
   // slug/status/카운터는 여기서 건드리지 않는다(발행은 setBookStatus, 카운터는 DB 소유).
   const { data, error } = await session.supabase

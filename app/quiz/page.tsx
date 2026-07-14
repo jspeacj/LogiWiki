@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { TOPICS } from "@/lib/wiki/topics";
+import { getTopics } from "@/lib/wiki/topics-db";
 import { canonical, NOINDEX } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,8 @@ export const metadata: Metadata = {
   robots: NOINDEX ? { index: false, follow: false } : undefined,
 };
 
-export default function QuizIndexPage() {
+export default async function QuizIndexPage() {
+  const topics = await getTopics();
   return (
     <div className="mx-auto max-w-6xl px-5 py-10">
       <header className="border-b border-white/10 pb-6">
@@ -24,7 +25,7 @@ export default function QuizIndexPage() {
 
       <section className="py-8">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {TOPICS.map((topic) => (
+          {topics.map((topic) => (
             <Link
               key={topic.slug}
               href={`/quiz/${topic.slug}`}

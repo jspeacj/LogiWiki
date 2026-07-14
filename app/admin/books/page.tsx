@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { PenLine, Plus, Sparkles } from "lucide-react";
 import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
-import { topicLabel } from "@/lib/wiki/topics";
+import { getTopicMap } from "@/lib/wiki/topics-db";
 import { canonical } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -44,10 +44,13 @@ export default async function AdminBooksPage() {
   const auth = await getServerAuth();
   if (!auth?.user || !isAdminEmail(auth.user.email)) redirect("/login");
 
-  const { data } = await auth.supabase
-    .from("books")
-    .select("id, slug, title, topic, status, source, updated_at")
-    .order("updated_at", { ascending: false });
+  const [{ data }, topicMap] = await Promise.all([
+    auth.supabase
+      .from("books")
+      .select("id, slug, title, topic, status, source, updated_at")
+      .order("updated_at", { ascending: false }),
+    getTopicMap(),
+  ]);
 
   const books = (data ?? []) as BookRow[];
 
@@ -93,7 +96,7 @@ export default async function AdminBooksPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand">
-                        {topicLabel(book.topic)}
+                        {topicMap[book.topic]?.label ?? book.topic}
                       </span>
                       <span
                         className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getTopic, isTopic } from "@/lib/wiki/topics";
+import { getTopicBySlug } from "@/lib/wiki/topics-db";
 import { listBooks } from "@/lib/wiki/queries";
 import { parseBookSort } from "@/lib/wiki/types";
 import { normalizePage, normalizePageSize, totalPagesOf } from "@/lib/pagination";
@@ -21,7 +21,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { topic } = await params;
-  const meta = getTopic(topic);
+  const meta = await getTopicBySlug(topic);
   if (!meta) return { title: "토픽을 찾을 수 없습니다", robots: { index: false, follow: false } };
   return {
     title: `${meta.label} 학습 서적`,
@@ -40,8 +40,8 @@ export default async function TopicPage({
   searchParams: Promise<Search>;
 }) {
   const [{ topic }, query] = await Promise.all([params, searchParams]);
-  if (!isTopic(topic)) notFound();
-  const meta = getTopic(topic)!;
+  const meta = await getTopicBySlug(topic);
+  if (!meta) notFound();
 
   const sort = parseBookSort(query.sort);
   const perPage = normalizePageSize(query.per);

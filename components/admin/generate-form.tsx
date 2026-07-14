@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { enqueueGeneration, type AdminActionState } from "@/app/actions/wiki-admin";
-import { TOPICS } from "@/lib/wiki/topics";
+import type { Topic } from "@/lib/wiki/topics";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 /** AI 초안 생성 요청 폼(관리자 전용). */
-export function GenerateForm() {
+export function GenerateForm({ topics }: { topics: Topic[] }) {
   const [state, action, pending] = useActionState<AdminActionState, FormData>(
     enqueueGeneration,
     {},
@@ -39,8 +39,8 @@ export function GenerateForm() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="topic">토픽</Label>
-          <Select id="topic" name="topic" defaultValue={TOPICS[0]?.slug}>
-            {TOPICS.map((topic) => (
+          <Select id="topic" name="topic" defaultValue={topics[0]?.slug}>
+            {topics.map((topic) => (
               <option key={topic.slug} value={topic.slug}>
                 {topic.label}
               </option>

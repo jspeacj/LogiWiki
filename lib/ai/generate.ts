@@ -1,7 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { claude } from "./claude";
-import { topicLabel } from "@/lib/wiki/topics";
 
 /**
  * AI 서적 초안 생성(2단계). 결과는 항상 status='draft' → 관리자 검수 후 발행.
@@ -77,7 +76,13 @@ export async function generateBookDraft(
   },
   adminAuthorId: string,
 ): Promise<string> {
-  const label = topicLabel(job.topic);
+  // 토픽 라벨은 DB(public.topics)가 원천 — AI 가 새로 만든 토픽도 정확히 읽힌다.
+  const { data: topicRow } = await supabase
+    .from("topics")
+    .select("label")
+    .eq("slug", job.topic)
+    .maybeSingle();
+  const label = (topicRow as { label?: string } | null)?.label ?? job.topic;
 
   // 1) 목차(outline)
   const outline = await claude.completeJSON<Outline>({

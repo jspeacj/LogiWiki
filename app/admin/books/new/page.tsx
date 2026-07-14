@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { canonical } from "@/lib/site";
+import { getTopics } from "@/lib/wiki/topics-db";
 import { BookForm } from "@/components/admin/book-form";
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function NewBookPage() {
   const auth = await getServerAuth();
   if (!auth?.user || !isAdminEmail(auth.user.email)) redirect("/login");
+  const topics = await getTopics();
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-10">
@@ -32,7 +34,7 @@ export default async function NewBookPage() {
       </header>
 
       <section className="py-8">
-        <BookForm />
+        <BookForm topics={topics} />
       </section>
     </div>
   );

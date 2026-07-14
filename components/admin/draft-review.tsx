@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { approveBook, rejectBook } from "@/app/actions/wiki-admin";
-import { topicLabel } from "@/lib/wiki/topics";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +13,7 @@ type Draft = {
   slug: string;
   title: string;
   topic: string;
+  topic_label?: string;
   source: string;
   status: string;
   created_at: string;
@@ -68,7 +68,7 @@ export function DraftReview({ drafts }: { drafts: Draft[] }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand">
-                  {topicLabel(draft.topic)}
+                  {draft.topic_label ?? draft.topic}
                 </span>
                 {draft.source === "ai" ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-brand-2/15 px-2 py-0.5 text-[11px] font-medium text-brand-2">

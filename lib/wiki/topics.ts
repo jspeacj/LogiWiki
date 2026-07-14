@@ -1,9 +1,12 @@
 /**
- * IT 학습 토픽 SSOT.
+ * IT 학습 토픽 — **내장 기본값(시드 + 폴백)**.
  *
- * DB `books.topic` 은 자유 텍스트지만, 앱은 이 목록으로 검증한다(Zod). 토픽은
- * URL 권위 세그먼트가 아니라 facet(허브 + 필터)으로만 쓴다(도어웨이 페이지 회피).
- * accent 는 Tailwind 정적 리터럴이라야 스캐너가 클래스를 생성한다.
+ * ⚠️ 런타임 SSOT 는 여기가 아니라 DB(`public.topics`)다. → lib/wiki/topics-db.ts
+ * AI 자동 생성이 기존에 없던 분야(예: Rust, Kubernetes)를 다루면 토픽 행을 새로 만들기
+ * 때문에, 화면과 검증은 모두 DB 를 읽어야 한다. 이 파일은 0011 마이그레이션의 시드 내용과
+ * 동일하며, DB 를 읽지 못할 때의 폴백으로만 쓰인다.
+ *
+ * accent 는 Tailwind 정적 리터럴이라야 스캐너가 클래스를 생성한다(DB check 제약도 동일 목록).
  */
 
 export interface Topic {

@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { ArrowRight, PenLine } from "lucide-react";
 import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
-import { topicLabel } from "@/lib/wiki/topics";
+import { getTopicMap, getTopics } from "@/lib/wiki/topics-db";
 import { canonical } from "@/lib/site";
 import { GenerateForm } from "@/components/admin/generate-form";
+import { AiSettingsForm } from "@/components/admin/ai-settings-form";
 import { DraftReview } from "@/components/admin/draft-review";
+import type { AiSettings } from "@/app/actions/wiki-admin";
 
 export const metadata: Metadata = {
   title: "검수 관리자",
@@ -32,18 +34,38 @@ export default async function AdminPage() {
   // AI 생성은 유료 API. 키가 없으면 폼 대신 안내를 띄운다(cron 도 자동으로 skip 된다).
   const aiEnabled = !!process.env.ANTHROPIC_API_KEY;
 
-  const [{ data: drafts }, { data: jobs }] = await Promise.all([
-    supabase
-      .from("books")
-      .select("id, slug, title, topic, source, status, created_at")
-      .in("status", ["draft", "in_review"])
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("ai_generation_jobs")
-      .select("id, topic, subtopic, status, error, created_at")
-      .order("created_at", { ascending: false })
-      .limit(20),
-  ]);
+  const [{ data: drafts }, { data: jobs }, { data: settingsRow }, topics, topicMap] =
+    await Promise.all([
+      supabase
+        .from("books")
+        .select("id, slug, title, topic, source, status, created_at")
+        .in("status", ["draft", "in_review"])
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("ai_generation_jobs")
+        .select("id, topic, subtopic, status, error, created_at")
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("ai_settings")
+        .select("enabled, daily_book_count, language")
+        .eq("id", true)
+        .maybeSingle(),
+      getTopics(),
+      getTopicMap(),
+    ]);
+
+  const settings: AiSettings = (settingsRow as AiSettings | null) ?? {
+    enabled: false,
+    daily_book_count: 0,
+    language: "ko",
+  };
+
+  // 초안 카드에 표시할 토픽 라벨을 서버에서 붙여준다(AI 신규 토픽도 정확히 표기).
+  const draftRows = (drafts ?? []).map((d) => ({
+    ...d,
+    topic_label: topicMap[d.topic]?.label ?? d.topic,
+  }));
 
   return (
     <div className="mx-auto max-w-4xl px-5 py-10">
@@ -84,9 +106,20 @@ export default async function AdminPage() {
       </section>
 
       <section className="border-t border-white/10 py-8">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">AI 초안 생성</h2>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-foreground">매일 자동 생성</h2>
+          <p className="mt-1 text-sm text-muted">
+            매일 정해진 권수만큼 AI 가 주제를 골라 초안을 만듭니다. 기존 토픽에 없는 분야면
+            토픽도 새로 만듭니다. <strong className="text-muted-strong">발행은 언제나 관리자 승인 후</strong>입니다.
+          </p>
+        </div>
+        <AiSettingsForm settings={settings} apiEnabled={aiEnabled} />
+      </section>
+
+      <section className="border-t border-white/10 py-8">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">AI 초안 생성 (수동)</h2>
         {aiEnabled ? (
-          <GenerateForm />
+          <GenerateForm topics={topics} />
         ) : (
           <div className="rounded-2xl border border-dashed border-white/12 bg-white/[0.02] px-6 py-8 text-sm text-muted">
             <p className="font-medium text-muted-strong">
@@ -106,7 +139,7 @@ export default async function AdminPage() {
 
       <section className="border-t border-white/10 py-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">검수 대기 초안</h2>
-        <DraftReview drafts={drafts ?? []} />
+        <DraftReview drafts={draftRows} />
       </section>
 
       <section className="border-t border-white/10 py-8">
@@ -130,7 +163,7 @@ export default async function AdminPage() {
               <tbody>
                 {jobs.map((job) => (
                   <tr key={job.id} className="border-b border-white/5 last:border-0">
-                    <td className="px-4 py-3 text-foreground">{topicLabel(job.topic)}</td>
+                    <td className="px-4 py-3 text-foreground">{topicMap[job.topic]?.label ?? job.topic}</td>
                     <td className="px-4 py-3 text-muted">{job.subtopic}</td>
                     <td className="px-4 py-3 text-muted">
                       {JOB_STATUS_LABEL[job.status] ?? job.status}

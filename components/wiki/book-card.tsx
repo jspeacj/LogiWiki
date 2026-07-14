@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, Eye, Sparkles, ThumbsUp, User } from "lucide-react";
 import type { BookListItem } from "@/lib/wiki/types";
-import { topicLabel } from "@/lib/wiki/topics";
 import { formatRelativeOrDate } from "@/lib/community/format";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +13,7 @@ export function BookCard({ book }: { book: BookListItem }) {
     >
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand">
-          {topicLabel(book.topic)}
+          {book.topic_label}
         </span>
         {book.source === "ai" && (
           <span className="inline-flex items-center gap-1 rounded-full bg-brand-2/15 px-2 py-0.5 text-[11px] font-medium text-brand-2">

@@ -5,7 +5,6 @@ import { after } from "next/server";
 import { ArrowLeft, ArrowRight, ChevronLeft } from "lucide-react";
 import { getBookBySlug, getChapter, recordBookView } from "@/lib/wiki/queries";
 import { renderMarkdown } from "@/lib/wiki/markdown";
-import { topicLabel } from "@/lib/wiki/topics";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 
@@ -29,7 +28,7 @@ export async function generateMetadata({
   return {
     title: `${chapter.title} — ${book.title}`,
     description:
-      book.description || `${topicLabel(book.topic)} · ${book.title} · ${chapter.title}`,
+      book.description || `${book.topic_label} · ${book.title} · ${chapter.title}`,
     alternates: { canonical: path },
     robots: indexable ? undefined : { index: false, follow: false },
     openGraph: {
@@ -91,7 +90,7 @@ export default async function ChapterPage({
             <Link href="/" className="hover:text-foreground">서적</Link>
             <span className="mx-1.5">/</span>
             <Link href={`/topic/${book.topic}`} className="hover:text-foreground">
-              {topicLabel(book.topic)}
+              {book.topic_label}
             </Link>
             <span className="mx-1.5">/</span>
             <Link href={`/book/${book.slug}`} className="hover:text-foreground">
@@ -162,7 +161,7 @@ function ChapterJsonLd({
     "@type": "TechArticle",
     headline: chapter.title,
     inLanguage: book.language,
-    about: topicLabel(book.topic),
+    about: book.topic_label,
     url,
     isPartOf: { "@type": "Course", name: book.title, url: bookUrl },
     ...(book.author ? { author: { "@type": "Person", name: book.author.nickname } } : {}),
