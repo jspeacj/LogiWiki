@@ -63,7 +63,7 @@ export default function AboutPage() {
 
         <h2>누가 만드나</h2>
         <p>
-          <strong>{EDITOR_NAME}</strong> 이 편집과 감수를 맡고 있습니다. 실무에서 쓰는 언어와
+          <strong>{EDITOR_NAME}</strong>이 편집과 감수를 맡고 있습니다. 실무에서 쓰는 언어와
           도구를 중심으로, 스스로 다시 찾아보게 되는 주제를 우선해 다룹니다. 발행된 모든 서적의
           내용에 대한 책임은 편집자에게 있습니다.
         </p>

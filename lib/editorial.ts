@@ -9,8 +9,8 @@
  *    같은 값으로 바꿔야 화면이 일치한다(현재 "LogiWikiAdmin").
  */
 
-/** 서적 편집·감수자 표기명. */
-export const EDITOR_NAME = "로지";
+/** 서적 편집·감수자 표기명. 실명 — 검색·AdSense 의 E-E-A-T 신호가 가장 강하다. */
+export const EDITOR_NAME = "김보성";
 
 /** 문의·개인정보 관련 연락처. */
 export const CONTACT_EMAIL = "charoenchai.apinya@gmail.com";

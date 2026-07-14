@@ -23,7 +23,7 @@ export function Footer() {
           {" — IT 개념을 서적처럼 깊이 있게 다루는 학습 플랫폼"}
         </p>
         <p className="text-xs">
-          모든 서적은 {EDITOR_NAME} 의 검수를 거쳐 발행됩니다. 열람은 무료, 댓글·추천은 로그인
+          모든 서적은 {EDITOR_NAME}의 검수를 거쳐 발행됩니다. 열람은 무료, 댓글·추천은 로그인
           후 이용하세요.
         </p>
 

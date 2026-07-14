@@ -63,8 +63,8 @@ export default function ContactPage() {
         <Link href="/community" className="text-brand-2 hover:underline">
           자유게시판
         </Link>
-        에 남기셔도 좋습니다. 다른 학습자에게도 도움이 됩니다. 운영과 편집은{" "}
-        {EDITOR_NAME} 이 맡고 있습니다 —{" "}
+        에 남기셔도 좋습니다. 다른 학습자에게도 도움이 됩니다. 운영과 편집은 {EDITOR_NAME}이
+        맡고 있습니다 —{" "}
         <Link href="/about" className="text-brand-2 hover:underline">
           소개 페이지
         </Link>
