@@ -58,6 +58,48 @@ const need = (cond, msg) => {
   if (!cond) fail(`검증 실패 — ${msg}`);
 };
 
+/**
+ * 코드펜스(```) 안쪽을 제외하고 각 줄을 순회한다.
+ *
+ * 왜 필요한가: bash·python·yaml 코드 예제의 **주석**이 `# ...` 으로 시작한다.
+ * 코드블록을 무시하지 않으면 그 주석을 마크다운 h1 으로 오인해, 멀쩡한 챕터를
+ * "h1 이 있다"며 거부한다(실제로 그렇게 한 번 실패했다).
+ */
+function eachLineOutsideCode(markdown, visit) {
+  let inFence = false;
+  return markdown.split("\n").map((line) => {
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence;
+      return line;
+    }
+    return inFence ? line : visit(line);
+  });
+}
+
+/** 코드블록 밖에 h1(# )이 있는가. */
+function hasTopLevelHeading(markdown) {
+  let found = false;
+  eachLineOutsideCode(markdown, (line) => {
+    if (/^#\s/.test(line)) found = true;
+    return line;
+  });
+  return found;
+}
+
+/**
+ * 모든 제목을 한 단계 낮춘다(# → ##, ## → ###, …).
+ *
+ * 챕터 제목은 시스템이 h1 으로 따로 렌더하므로 본문의 h1 은 중복이다. 그렇다고 이미
+ * 다 써놓은 챕터를 버리는 건 낭비다 — h1 만 h2 로 바꾸면 기존 h2 와 충돌하므로
+ * **전체를 한 칸씩 내린다**(h6 이 상한).
+ */
+function demoteHeadings(markdown) {
+  return eachLineOutsideCode(markdown, (line) => {
+    const m = /^(#{1,5})(\s)/.exec(line);
+    return m ? `#${m[1]}${m[2]}${line.slice(m[0].length)}` : line;
+  }).join("\n");
+}
+
 // ── 1) 기획안 로드 + 검증 ────────────────────────────────────────────────────
 let outline;
 try {
@@ -106,8 +148,13 @@ for (const ch of outline.chapters) {
   need(len >= MIN_BODY_CHARS, `${ch.slug}.md 가 ${len}자 — 최소 ${MIN_BODY_CHARS}자 필요`);
   // 코드 예제가 없는 기술 서적은 교과서 품질이 아니다.
   need(body.includes("```"), `${ch.slug}.md 에 코드블록(\`\`\`)이 없습니다`);
-  // h1 은 시스템이 챕터 제목으로 따로 렌더하므로 본문에 있으면 중복된다.
-  need(!/^#\s/m.test(body), `${ch.slug}.md 에 h1(#)이 있습니다 — h2(##)부터 쓰세요`);
+
+  // h1 은 시스템이 챕터 제목으로 따로 렌더하므로 본문에 있으면 중복이다.
+  // 하지만 다 써놓은 챕터를 이것 때문에 버리는 건 낭비다 → 제목 레벨을 한 칸 내려 고친다.
+  if (hasTopLevelHeading(body)) {
+    body = demoteHeadings(body);
+    console.log(`   ↳ ${ch.slug}.md: 본문에 h1 이 있어 제목 레벨을 한 단계 낮췄습니다`);
+  }
 
   chapters.push({ slug: ch.slug, title: ch.title.trim(), body });
 }
