@@ -34,10 +34,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: 의존성 설치
-        run: npm ci
+      # 이 워크플로는 앱을 빌드하지 않는다. 필요한 건 Supabase 클라이언트 하나뿐이다.
+      # `npm ci` 로 전체 의존성을 깔지 않는 이유:
+      #   - 불필요하다(next·eslint·tailwind 를 설치할 이유가 없다)
+      #   - eslint 의존성 아래 중첩된 wasm 선택적 패키지(@emnapi/*)에서 npm 이
+      #     락파일을 스스로 모순되게 만들어 `npm ci` 가 EUSAGE 로 실패한다(npm 버그).
+      #     락파일을 손대면 Vercel 배포 쪽이 위험하므로 여기서 우회한다.
+      - name: Supabase 클라이언트 설치
+        run: npm install --no-save --no-package-lock @supabase/supabase-js@^2
 
       - name: 1) 집필 컨텍스트 수집 (기존 토픽·서적 → .ai/context.json)
         env:
