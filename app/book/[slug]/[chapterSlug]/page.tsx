@@ -7,6 +7,7 @@ import { getBookBySlug, getChapter, recordBookView } from "@/lib/wiki/queries";
 import { renderMarkdown } from "@/lib/wiki/markdown";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
+import { Mermaid } from "@/components/wiki/mermaid";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,9 @@ export default async function ChapterPage({
   if (isPublished) after(() => recordBookView(book.id));
 
   const html = await renderMarkdown(chapter.body);
+  // mermaid 는 무겁다. 다이어그램이 실제로 있는 챕터에서만 렌더러를 붙인다
+  // (없는 페이지는 mermaid 번들을 한 바이트도 받지 않는다).
+  const hasDiagram = html.includes('class="mermaid"');
 
   const flat = flattenChapters(book.chapters);
   const idx = flat.findIndex((c) => c.slug === chapter.slug);
@@ -103,11 +107,14 @@ export default async function ChapterPage({
           </h1>
 
           {html ? (
-            <div
-              className="book-prose"
-              // 본문은 renderMarkdown 에서 DOMPurify 로 새니타이즈됨.
-              dangerouslySetInnerHTML={{ __html: html }}
-            />
+            <>
+              <div
+                className="book-prose"
+                // 본문은 renderMarkdown 에서 sanitize-html 로 새니타이즈됨.
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+              {hasDiagram && <Mermaid />}
+            </>
           ) : (
             <p className="text-muted">이 챕터에는 아직 내용이 없습니다.</p>
           )}

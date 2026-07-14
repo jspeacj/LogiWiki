@@ -333,3 +333,33 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ───────────────────────── Mermaid 다이어그램 ─────────────────────────
+   서버는 <pre class="mermaid">원문</pre> 을 내려주고 브라우저가 SVG 로 바꾼다.
+   그리기 전에는 원문 텍스트가 잠깐 보이므로(FOUC), 렌더 완료 전까지 숨긴다.
+   data-processed 는 mermaid 가 그리기를 마치면 붙이는 표식이다. */
+.book-prose pre.mermaid {
+  display: grid;
+  place-items: center;
+  margin: 1.75rem 0;
+  padding: 1.25rem;
+  border: 1px solid rgb(var(--border) / 0.14);
+  border-radius: 1rem;
+  background: rgb(var(--surface) / 0.35);
+  overflow-x: auto;
+  /* 렌더 전: 원문 코드를 숨긴다(높이는 유지해 레이아웃이 튀지 않도록) */
+  min-height: 6rem;
+  color: transparent;
+  font-size: 0;
+}
+
+.book-prose pre.mermaid[data-processed="true"] {
+  color: inherit;
+  font-size: inherit;
+  min-height: 0;
+}
+
+.book-prose pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

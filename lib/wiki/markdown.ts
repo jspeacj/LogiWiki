@@ -98,6 +98,20 @@ async function highlight(code: string, rawLang: string): Promise<string> {
   }
 }
 
+/**
+ * ```mermaid 코드펜스 → 다이어그램 컨테이너.
+ *
+ * 하이라이트하지 않고 원문을 <pre class="mermaid"> 안에 그대로 둔다.
+ * 브라우저에서 <Mermaid> 클라이언트 컴포넌트가 이걸 찾아 SVG 로 그린다.
+ *
+ * 서버에서 렌더하지 않는 이유: mermaid 는 DOM 이 필요해 jsdom 을 끌어오는데,
+ * 그게 바로 챕터 라우트를 통째로 500 으로 만들었던 ERR_REQUIRE_ESM 의 원인이었다.
+ * 클라이언트에서 그리면 그 지뢰를 밟지 않는다.
+ */
+function mermaidBlock(code: string): string {
+  return `<pre class="mermaid">${escapeHtml(code)}</pre>`;
+}
+
 /** HTML 특수문자 이스케이프(하이라이트 실패 시 평문 폴백용). */
 function escapeHtml(s: string): string {
   return s
@@ -176,8 +190,12 @@ async function renderMarkdownUnsafe(markdown: string): Promise<string> {
       if (token.type === "code") {
         const code = token as Tokens.Code;
         const lang = (code.lang ?? "").split(/\s+/)[0].toLowerCase();
-        // 하이라이트된 <pre> 를 미리 만들어 두고, 커스텀 renderer 가 그대로 출력한다.
-        code.text = await highlight(code.text, lang);
+        // 하이라이트된 <pre>(또는 mermaid 컨테이너)를 미리 만들어 두고,
+        // 커스텀 renderer 가 그대로 출력한다.
+        code.text =
+          lang === "mermaid"
+            ? mermaidBlock(code.text)
+            : await highlight(code.text, lang);
         code.escaped = true;
       }
     },

@@ -19,7 +19,7 @@
  * 실행: node scripts/ai/insert-book.mjs
  */
 import { createClient } from "@supabase/supabase-js";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,6 +47,7 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{2,59}$/;
 const MIN_CHAPTERS = 6;
 const MAX_CHAPTERS = 14;
 const MIN_BODY_CHARS = 1200;
+const MIN_DIAGRAMS = 2;
 
 function fail(message) {
   console.error(`❌ ${message}`);
@@ -91,13 +92,6 @@ for (const [i, ch] of outline.chapters.entries()) {
 }
 
 // ── 2) 챕터 본문 로드 + 분량 검증 ────────────────────────────────────────────
-let files = [];
-try {
-  files = await readdir(".ai/chapters");
-} catch {
-  fail(".ai/chapters 디렉터리가 없습니다. 챕터 본문을 파일로 저장해야 합니다.");
-}
-
 const chapters = [];
 for (const ch of outline.chapters) {
   const file = path.join(".ai/chapters", `${ch.slug}.md`);
@@ -119,7 +113,21 @@ for (const ch of outline.chapters) {
 }
 
 const totalChars = chapters.reduce((n, c) => n + c.body.length, 0);
-console.log(`📚 "${outline.title}" — 챕터 ${chapters.length}개, 총 ${totalChars.toLocaleString()}자`);
+
+// 다이어그램은 서적 전체 기준으로 센다(모든 챕터에 필요한 건 아니다).
+// 글로만 된 기술 서적은 이해를 돕지 못한다 → 최소 2개를 강제한다.
+const diagrams = chapters.reduce(
+  (n, c) => n + (c.body.match(/```mermaid/g) ?? []).length,
+  0,
+);
+need(
+  diagrams >= MIN_DIAGRAMS,
+  `mermaid 다이어그램이 ${diagrams}개 — 서적 전체에 최소 ${MIN_DIAGRAMS}개 필요`,
+);
+
+console.log(
+  `📚 "${outline.title}" — 챕터 ${chapters.length}개, 총 ${totalChars.toLocaleString()}자, 다이어그램 ${diagrams}개`,
+);
 
 // ── 3) 저자 = 관리자 프로필 ──────────────────────────────────────────────────
 const supabase = createClient(url, key, { auth: { persistSession: false } });

@@ -164,10 +164,40 @@ jobs:
             독자가 직접 해볼 문제 1개.
             ```
 
-            **품질 규칙(위반 시 삽입이 거부됩니다):**
+            ## 다이어그램 (중요)
+
+            글로만 설명하기 어려운 개념은 **Mermaid 다이어그램**으로 그리세요.
+            사이트가 자동으로 SVG 로 렌더합니다. ```mermaid 코드펜스를 쓰면 됩니다.
+
+            ```mermaid
+            flowchart TD
+              A["콜 스택이 비었는가?"] -->|예| B["마이크로태스크 큐를 전부 비운다"]
+              B --> C["매크로태스크를 1개 실행"]
+              C --> A
+            ```
+
+            **서적 전체에 최소 2개 이상**의 다이어그램을 넣으세요. 쓸 만한 곳:
+
+            | 다이어그램 | 언제 |
+            |---|---|
+            | `flowchart` | 실행 흐름, 의사결정 트리, 알고리즘 단계 |
+            | `sequenceDiagram` | 요청·응답, 컴포넌트 간 상호작용, 라이프사이클 |
+            | `stateDiagram-v2` | 상태 전이(연결 상태, 컴포넌트 생명주기) |
+            | `erDiagram` | DB 스키마, 엔티티 관계 |
+            | `classDiagram` | 타입·상속 구조 |
+
+            🚨 **장식용 다이어그램은 넣지 마세요.** "이해를 돕는가?"가 유일한 기준입니다.
+            글로 한 문장이면 끝나는 걸 그림으로 그리는 건 오히려 방해입니다.
+
+            ⚠️ 다이어그램 라벨은 **큰따옴표로 감싸세요** (`A["콜 스택"]`).
+            괄호·콜론 등이 들어가면 따옴표 없이는 문법 오류가 납니다.
+
+            ## 품질 규칙 (위반 시 삽입이 거부됩니다)
+
             - 각 챕터에 **코드블록(```)이 최소 1개** — 실행 가능한 코드여야 함
             - 본문에 **h1(#) 금지** — 챕터 제목은 시스템이 따로 표시합니다. h2(##)부터 쓰세요
             - 최소 1,200자 (권장 1,500자 이상)
+            - **서적 전체에 mermaid 다이어그램 2개 이상**
             - 버전에 따라 동작이 다르면 명시할 것
             - 표(|---|)와 비교를 적극 활용할 것
 
@@ -198,7 +228,7 @@ jobs:
             console.log('소개  :', (o.description ?? '').length, '자');
             console.log('챕터  :', (o.chapters ?? []).length, '개');
             console.log('');
-            let total = 0, missing = 0;
+            let total = 0, missing = 0, diagrams = 0;
             for (const c of o.chapters ?? []) {
               const f = '.ai/chapters/' + c.slug + '.md';
               if (!fs.existsSync(f)) { console.log('  ❌ 없음  ', c.slug); missing++; continue; }
@@ -209,7 +239,7 @@ jobs:
                 String(body.trim().length).padStart(6) + '자  ' + code + '  ' + c.slug + ' — ' + c.title);
             }
             console.log('');
-            console.log('총 분량:', total.toLocaleString(), '자');
+            console.log('총 분량:', total.toLocaleString(), '자  |  다이어그램:', diagrams, '개');
             if (missing) { console.error('::error::챕터 본문 파일 ' + missing + '개 누락'); process.exit(1); }
           "
 

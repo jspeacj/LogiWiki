@@ -196,7 +196,8 @@ export function ChapterEditor({
                 className="min-h-[28rem] font-mono text-[13px] leading-relaxed"
               />
               <p className="mt-2 text-xs text-muted">
-                코드블록은 ```언어 로 감싸면 문법 하이라이트가 적용됩니다. h1(#)은 챕터 제목이
+                코드블록은 ```언어 로 감싸면 문법 하이라이트가, <code>```mermaid</code> 로 감싸면
+                다이어그램(flowchart·sequenceDiagram 등)이 렌더됩니다. h1(#)은 챕터 제목이
                 자동으로 표시되므로 본문에서는 h2(##)부터 쓰세요.
               </p>
             </div>
