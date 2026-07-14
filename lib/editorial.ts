@@ -13,7 +13,7 @@
 export const EDITOR_NAME = "김보성";
 
 /** 문의·개인정보 관련 연락처. */
-export const CONTACT_EMAIL = "charoenchai.apinya@gmail.com";
+export const CONTACT_EMAIL = "jspeacj@gmail.com";
 
 /** 개인정보처리방침 최종 개정일 (개정 시 함께 갱신). */
 export const PRIVACY_UPDATED_AT = "2026-07-15";
