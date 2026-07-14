@@ -2,15 +2,68 @@ import "server-only";
 
 import { Marked, type Tokens } from "marked";
 import { codeToHtml } from "shiki";
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
 /**
  * 서적 챕터 본문(markdown) → 안전한 HTML.
  *
- * 파이프라인: marked(GFM) 파싱 → 코드블록은 shiki 로 하이라이트 → DOMPurify 로 새니타이즈.
+ * 파이프라인: marked(GFM) 파싱 → 코드블록은 shiki 로 하이라이트 → sanitize-html 로 새니타이즈.
  * AI·사람 저작 본문 모두 이 경로를 거치므로 XSS 표면을 중앙에서 차단한다.
  * shiki 전체 번들을 쓰므로 서버 전용(RSC 렌더 시점)에서만 실행한다.
+ *
+ * 새니타이저로 isomorphic-dompurify(=jsdom)를 쓰지 않는다: jsdom 의 의존성
+ * html-encoding-sniffer 가 CJS 에서 ESM 을 require 해 서버리스 런타임에서
+ * ERR_REQUIRE_ESM 으로 죽는다(챕터 라우트 전체가 500). sanitize-html 은 htmlparser2
+ * 기반이라 DOM 구현이 필요 없다.
  */
+
+/** shiki 인라인 스타일(색상 등)만 허용. 레이아웃·위치 관련 속성은 통과시키지 않는다. */
+const ALLOWED_STYLES = {
+  "*": {
+    color: [/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i, /^rgb\(/i],
+    "background-color": [/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i, /^rgb\(/i],
+    "font-style": [/^italic$|^normal$/],
+    "font-weight": [/^bold$|^normal$|^\d{3}$/],
+    "text-decoration": [/^underline$|^line-through$|^none$/],
+  },
+};
+
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr", "blockquote",
+    "ul", "ol", "li",
+    "strong", "em", "del", "code", "pre", "span",
+    "a", "img",
+    "table", "thead", "tbody", "tr", "th", "td",
+  ],
+  allowedAttributes: {
+    a: ["href", "title", "target", "rel"],
+    img: ["src", "alt", "title"],
+    // shiki 는 <pre class="shiki ..." style="..." tabindex="0"> 와 색상 span 을 만든다.
+    pre: ["class", "style", "tabindex"],
+    code: ["class", "style"],
+    span: ["class", "style"],
+    th: ["align"],
+    td: ["align"],
+  },
+  allowedStyles: ALLOWED_STYLES,
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowProtocolRelative: false,
+  // 외부 링크는 새 탭 + rel 로 탭내빙(tabnabbing) 방지.
+  transformTags: {
+    a: (tagName, attribs) => {
+      const href = attribs.href ?? "";
+      const external = /^https?:\/\//i.test(href);
+      return {
+        tagName,
+        attribs: external
+          ? { ...attribs, target: "_blank", rel: "noopener noreferrer nofollow" }
+          : attribs,
+      };
+    },
+  },
+};
 
 // 흔한 코드펜스 언어 별칭 → shiki 등록 언어명.
 const LANG_ALIASES: Record<string, string> = {
@@ -94,10 +147,5 @@ async function renderMarkdownUnsafe(markdown: string): Promise<string> {
   });
 
   const rawHtml = await marked.parse(markdown);
-  return DOMPurify.sanitize(rawHtml, {
-    // shiki 코드블록의 span 인라인 색상·pre tabindex 를 보존한다.
-    ADD_ATTR: ["target", "tabindex"],
-    ALLOWED_URI_REGEXP:
-      /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.:-]|$))/i,
-  });
+  return sanitizeHtml(rawHtml, SANITIZE_OPTIONS);
 }
