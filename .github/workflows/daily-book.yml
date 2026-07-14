@@ -58,6 +58,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # github_token 을 명시하면 액션이 OIDC → Claude GitHub App 토큰 교환을 건너뛴다.
+          # 그 교환은 PR 댓글 등 리포지토리 상호작용용인데, 이 워크플로는 파일만 쓰므로 불필요하다.
+          # (넘기지 않으면 "Claude Code is not installed on this repository" 로 실패한다.)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             당신은 IT 학습 플랫폼 LogiWiki 의 기술 서적 저자입니다.
             오늘 발행할 서적 **1권**을 기획하고 집필해 `.ai/book.json` 파일로 저장하세요.
