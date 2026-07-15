@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import { deletePost } from "@/app/actions/community";
 import { useAuth } from "@/lib/auth/context";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 
 /** 작성자 본인 또는 관리자에게 보이는 수정·삭제 버튼. */
 export function PostActions({
@@ -26,21 +27,19 @@ export function PostActions({
         <Pencil className="size-3.5" />
         수정
       </Link>
-      <form
+      <ConfirmSubmit
         action={deletePost}
-        onSubmit={(e) => {
-          if (!confirm("정말 삭제하시겠어요? 되돌릴 수 없습니다.")) e.preventDefault();
-        }}
-      >
-        <input type="hidden" name="id" value={postId} />
-        <button
-          type="submit"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-xs text-rose-300 transition-colors hover:bg-rose-500/10"
-        >
-          <Trash2 className="size-3.5" />
-          삭제
-        </button>
-      </form>
+        hidden={{ id: postId }}
+        triggerAriaLabel="삭제"
+        triggerClassName="inline-flex items-center gap-1.5 rounded-lg border border-rose-400/25 px-2.5 py-1.5 text-xs text-rose-300 transition-colors hover:bg-rose-500/10"
+        trigger={
+          <>
+            <Trash2 className="size-3.5" />
+            삭제
+          </>
+        }
+        prompt="삭제할까요?"
+      />
     </div>
   );
 }

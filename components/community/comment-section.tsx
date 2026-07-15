@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth/context";
 import { formatRelativeOrDate } from "@/lib/community/format";
 import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
+import { ConfirmSubmit } from "@/components/ui/confirm-submit";
 import { Textarea } from "@/components/ui/textarea";
 
 const ERR = { FORBIDDEN: "작성 권한이 없습니다." };
@@ -172,22 +173,14 @@ function CommentRow({
             >
               <Pencil className="size-3.5" />
             </button>
-            <form
+            <ConfirmSubmit
               action={deleteComment}
-              onSubmit={(e) => {
-                if (!confirm("정말 삭제하시겠어요? 되돌릴 수 없습니다.")) e.preventDefault();
-              }}
-            >
-              <input type="hidden" name="id" value={comment.id} />
-              <input type="hidden" name="postId" value={postId} />
-              <button
-                type="submit"
-                aria-label="삭제"
-                className="rounded-md p-1 text-muted transition-colors hover:text-rose-300"
-              >
-                <Trash2 className="size-3.5" />
-              </button>
-            </form>
+              hidden={{ id: comment.id, postId }}
+              triggerAriaLabel="삭제"
+              triggerClassName="rounded-md p-1 text-muted transition-colors hover:text-rose-300"
+              trigger={<Trash2 className="size-3.5" />}
+              prompt=""
+            />
           </div>
         )}
       </div>
