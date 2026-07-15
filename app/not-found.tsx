@@ -1,5 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, Home } from "lucide-react";
+
+/**
+ * not-found UI 는 절대 색인하지 않는다.
+ *
+ * 스트리밍(loading.tsx)·ISR 라우트에서 notFound() 는 HTTP 200 을 반환할 수밖에 없다(응답
+ * 헤더가 이미 나간 뒤라 상태를 못 바꾼다 — Next 공식 문서화된 동작). 대신 notFound() 는
+ * 자동으로 noindex 메타를 주입해 색인을 막는다. 여기에 not-found UI 자체에도 명시적 noindex 를
+ * 두어, 사이트가 공개(NEXT_PUBLIC_NOINDEX=false)된 뒤에도 soft-404 페이지가 색인되지 않게 못박는다.
+ */
+export const metadata: Metadata = {
+  title: "페이지를 찾을 수 없습니다",
+  robots: { index: false, follow: false },
+};
 
 export default function NotFound() {
   return (
