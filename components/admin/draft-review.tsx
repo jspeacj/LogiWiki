@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Pencil, Sparkles } from "lucide-react";
 import { approveBook, rejectBook } from "@/app/actions/wiki-admin";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -95,6 +95,15 @@ export function DraftReview({ drafts }: { drafts: Draft[] }) {
                 className="inline-flex h-9 items-center rounded-xl border border-white/12 bg-white/[0.04] px-3.5 text-sm text-foreground transition-colors hover:border-white/25 hover:bg-white/[0.07]"
               >
                 미리보기
+              </Link>
+              {/* 검수 중 고칠 곳을 발견하면 승인 전에 편집기로 바로 넘어간다.
+                  편집기(/admin/books/[id])에서 메타·챕터 수정 후 발행까지 가능하다. */}
+              <Link
+                href={`/admin/books/${draft.id}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 text-sm text-foreground transition-colors hover:border-white/25 hover:bg-white/[0.07]"
+              >
+                <Pencil className="size-3.5" strokeWidth={2} />
+                수정
               </Link>
               <Button
                 type="button"
