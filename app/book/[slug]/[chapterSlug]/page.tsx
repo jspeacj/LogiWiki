@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { ArrowLeft, ArrowRight, BadgeCheck, ChevronLeft, Clock, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, ChevronLeft, Clock, User } from "lucide-react";
 import { getBookBySlug, getChapter, recordBookView } from "@/lib/wiki/queries";
 import { extractHeadings, renderMarkdown } from "@/lib/wiki/markdown";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
@@ -111,9 +111,13 @@ export default async function ChapterPage({
             <AdminEditLink bookId={book.id} className="mb-3 flex h-9 w-fit items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-4 text-sm font-medium text-brand transition-colors hover:border-brand/50 hover:bg-brand/15" />
 
             {/* 모바일: 접힌 목차 */}
-            <details className="rounded-2xl border border-white/10 bg-white/[0.02] lg:hidden">
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm text-muted-strong marker:hidden">
-                목차 · {idx + 1}/{flat.length}
+            <details className="group rounded-2xl border border-white/10 bg-white/[0.02] lg:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-muted-strong marker:hidden">
+                <span>목차 · {idx + 1}/{flat.length}</span>
+                <ChevronDown
+                  className="size-4 shrink-0 transition-transform group-open:rotate-180"
+                  strokeWidth={2}
+                />
               </summary>
               <div className="max-h-[60vh] overflow-y-auto border-t border-white/10 p-2">
                 <BookToc slug={book.slug} chapters={book.chapters} currentSlug={chapter.slug} />
@@ -130,7 +134,7 @@ export default async function ChapterPage({
         {/* 본문 */}
         <article className="min-w-0">
           <nav className="mb-3 text-sm text-muted" aria-label="위치">
-            <Link href="/" className="hover:text-foreground">서적</Link>
+            <Link href="/books" className="hover:text-foreground">서적</Link>
             <span className="mx-1.5">/</span>
             <Link href={`/topic/${book.topic}`} className="hover:text-foreground">
               {book.topic_label}

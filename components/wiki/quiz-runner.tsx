@@ -138,7 +138,11 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
       )}
 
       {result?.ok && (
-        <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4"
+        >
           <div className="flex items-center gap-2">
             {result.correct ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
@@ -172,7 +176,10 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
       )}
 
       {result?.error && (
-        <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+        <p
+          role="alert"
+          className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300"
+        >
           {ERROR_MESSAGE[result.error] ?? "채점에 실패했습니다. 다시 시도해 주세요."}
         </p>
       )}

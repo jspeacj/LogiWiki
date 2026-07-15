@@ -75,7 +75,7 @@ export default async function BookLandingPage({
       )}
 
       <nav className="mb-4 text-sm text-muted" aria-label="위치">
-        <Link href="/" className="hover:text-foreground">서적</Link>
+        <Link href="/books" className="hover:text-foreground">서적</Link>
         <span className="mx-1.5">/</span>
         <Link href={`/topic/${book.topic}`} className="hover:text-foreground">
           {book.topic_label}

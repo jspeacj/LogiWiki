@@ -67,6 +67,7 @@ export function UserMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="계정 메뉴"
         className="inline-flex h-9 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] pl-1.5 pr-3 text-sm text-muted-strong transition-colors hover:border-white/20 hover:text-foreground"
       >
         <span className="grid size-6 place-items-center rounded-full bg-gradient-to-br from-brand to-brand-2 text-xs font-semibold text-white">

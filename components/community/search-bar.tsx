@@ -45,7 +45,7 @@ export function SearchBar({ initial }: { initial: string }) {
             setValue("");
             apply("");
           }}
-          aria-label="clear"
+          aria-label="검색어 지우기"
           className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted transition-colors hover:text-foreground"
         >
           <X className="size-4" />
