@@ -4,13 +4,14 @@ import type { BookListItem } from "@/lib/wiki/types";
 import { formatRelativeOrDate } from "@/lib/community/format";
 import { cn } from "@/lib/utils";
 
-/** 서적 카드 — 목록/그리드에서 재사용. Link → basePath(/wiki) 자동. */
-export function BookCard({ book }: { book: BookListItem }) {
+/**
+ * 카드 내부(토픽 배지·제목·설명·메타). 링크/래퍼는 호출부가 감싼다.
+ * BookCard(단순 링크)와 FavoriteBookCard(해제 버튼 얹은 변형)가 공유해 마크업 중복을 없앤다.
+ * 서버/클라이언트 어느 컨텍스트에서도 동작하는 순수 표시 컴포넌트다.
+ */
+export function BookCardContent({ book }: { book: BookListItem }) {
   return (
-    <Link
-      href={`/book/${book.slug}`}
-      className="group flex h-full flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.05]"
-    >
+    <>
       <div className="flex items-center gap-2">
         <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand">
           {book.topic_label}
@@ -54,6 +55,18 @@ export function BookCard({ book }: { book: BookListItem }) {
           </span>
         </span>
       </div>
+    </>
+  );
+}
+
+/** 서적 카드 — 목록/그리드에서 재사용. Link → basePath(/wiki) 자동. */
+export function BookCard({ book }: { book: BookListItem }) {
+  return (
+    <Link
+      href={`/book/${book.slug}`}
+      className="group flex h-full flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-white/20 hover:bg-white/[0.05]"
+    >
+      <BookCardContent book={book} />
     </Link>
   );
 }

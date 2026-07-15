@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { BookOpen, CalendarDays, Eye, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
-import { getBookComments, hasRecommended, hasBookmarked } from "@/lib/wiki/social";
+import { getBookComments, getBookInteractionState } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
@@ -58,13 +58,10 @@ export default async function BookLandingPage({
   if (isPublished) after(() => recordBookView(book.id));
 
   // 추천/댓글/즐겨찾기는 발행된 서적에서만(RLS 도 동일 강제).
-  const [comments, recommended, bookmarked] = isPublished
-    ? await Promise.all([
-        getBookComments(book.id),
-        hasRecommended(book.id),
-        hasBookmarked(book.id),
-      ])
-    : [[], false, false];
+  // 상호작용 상태(추천·즐겨찾기)는 한 번의 세션 확인으로 함께 읽는다.
+  const [comments, interaction] = isPublished
+    ? await Promise.all([getBookComments(book.id), getBookInteractionState(book.id)])
+    : [[], { recommended: false, bookmarked: false }];
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-10">
@@ -138,14 +135,14 @@ export default async function BookLandingPage({
               bookId={book.id}
               slug={book.slug}
               initialCount={book.recommend_count}
-              initialRecommended={recommended}
+              initialRecommended={interaction.recommended}
             />
           )}
           {isPublished && (
             <BookmarkButton
               bookId={book.id}
               slug={book.slug}
-              initialBookmarked={bookmarked}
+              initialBookmarked={interaction.bookmarked}
             />
           )}
           {/* 관리자에게만 보임 — 발행 후에도 여기서 바로 편집기로 넘어간다. */}
