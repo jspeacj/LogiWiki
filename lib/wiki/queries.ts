@@ -1,9 +1,10 @@
 import "server-only";
 import { getPublicClient, getReadClient } from "@/lib/supabase/read";
+import { normalizeAuthor } from "@/lib/supabase/embed";
+import { escapeLikeValue } from "@/lib/supabase/filter";
 
 import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ProfileRef } from "@/lib/auth/types";
 import type {
   BookDetail,
   BookListItem,
@@ -28,20 +29,6 @@ function logQueryError(where: string, error: { message?: string; code?: string }
   });
 }
 
-/** PostgREST 임베드(object|array) → 단일 ProfileRef 로 정규화. */
-function normalizeAuthor(embed: unknown): ProfileRef | null {
-  if (!embed) return null;
-  const row = Array.isArray(embed) ? embed[0] : embed;
-  if (!row || typeof row !== "object") return null;
-  const r = row as Record<string, unknown>;
-  if (typeof r.id !== "string" || typeof r.nickname !== "string") return null;
-  return {
-    id: r.id,
-    nickname: r.nickname,
-    avatar_url: (r.avatar_url as string | null) ?? null,
-  };
-}
-
 /**
  * 저자 임베드는 반드시 FK 를 명시한다(`!books_author_id_fkey`).
  *
@@ -51,11 +38,6 @@ function normalizeAuthor(embed: unknown): ProfileRef | null {
  */
 const BOOK_LIST_COLUMNS =
   "id, slug, language, title, description, topic, source, status, view_count, recommend_count, cover_url, published_at, created_at, updated_at, author:profiles!books_author_id_fkey(id, nickname, avatar_url), topic_ref:topics!books_topic_fkey(label)";
-
-/** ilike 패턴 특수문자 이스케이프(%, _, \). */
-function escapeLike(input: string): string {
-  return input.replace(/[\\%_]/g, (m) => `\\${m}`);
-}
 
 /** topics 임베드 → 라벨. 없으면 슬러그 그대로(폴백). */
 function topicLabelFrom(embed: unknown, slug: string): string {
@@ -130,7 +112,7 @@ export async function listBooks(
     .range(from, to);
 
   if (topic) query = query.eq("topic", topic);
-  if (q && q.trim()) query = query.ilike("title", `%${escapeLike(q.trim())}%`);
+  if (q && q.trim()) query = query.ilike("title", `%${escapeLikeValue(q.trim())}%`);
 
   const { data, error, count } = await query;
   logQueryError("listBooks", error);

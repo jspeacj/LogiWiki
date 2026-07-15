@@ -1,18 +1,18 @@
 import "server-only";
 import { getPublicClient, getReadClient } from "@/lib/supabase/read";
 import {
+  normalizeAuthor,
+  mapCommentRow,
+  type RawCommentRow,
+} from "@/lib/supabase/embed";
+import { sanitizeOrTerm } from "@/lib/supabase/filter";
+import {
   DEFAULT_PAGE_SIZE,
   type Category,
   type CommentItem,
   type PostDetail,
   type PostListItem,
 } from "./types";
-
-
-/** PostgREST or 필터를 깨뜨리는 문자를 제거(공백 치환). */
-function sanitize(q: string): string {
-  return q.replace(/[,()%*\\]/g, " ").trim();
-}
 
 type ListParams = {
   category?: Category | "all";
@@ -56,7 +56,7 @@ export async function listPosts({
     query = query.eq("category", category);
   }
 
-  const term = sanitize(q);
+  const term = sanitizeOrTerm(q);
   if (term) {
     // 제목 OR 작성자 닉네임. 닉네임 매칭 author_id 를 먼저 찾아 합집합으로 거른다.
     const { data: profs } = await supabase
@@ -135,16 +135,7 @@ export async function getComments(postId: string): Promise<CommentItem[]> {
     .order("created_at", { ascending: true });
 
   if (error) return [];
-  return (data ?? []).map((row: RawCommentRow) => ({
-    id: row.id,
-    content: row.content,
-    edited: row.edited ?? false,
-    deleted_at: row.deleted_at ?? null,
-    deleted_kind: row.deleted_kind ?? null,
-    created_at: row.created_at,
-    author_id: row.author_id,
-    author: normalizeAuthor(row.author),
-  }));
+  return ((data ?? []) as RawCommentRow[]).map(mapCommentRow);
 }
 
 /**
@@ -163,21 +154,14 @@ export async function incrementViews(id: string): Promise<void> {
   if (error) console.error("[incrementViews]", error.message);
 }
 
-// ── 임베드 응답 정규화 ───────────────────────────────────────────────────────
-type RawAuthor = { id: string; nickname: string; avatar_url: string | null };
-
-function normalizeAuthor(a: RawAuthor | RawAuthor[] | null): RawAuthor | null {
-  if (!a) return null;
-  return Array.isArray(a) ? a[0] ?? null : a;
-}
-
+// ── 임베드 응답 행 타입 (정규화 헬퍼는 lib/supabase/embed) ────────────────────
 type RawListRow = {
   id: string;
   category: Category;
   title: string;
   view_count: number;
   created_at: string;
-  author: RawAuthor | RawAuthor[] | null;
+  author: unknown;
   comments: { count: number }[] | null;
 };
 
@@ -190,16 +174,5 @@ type RawDetailRow = {
   created_at: string;
   updated_at: string;
   author_id: string;
-  author: RawAuthor | RawAuthor[] | null;
-};
-
-type RawCommentRow = {
-  id: string;
-  content: string;
-  edited: boolean | null;
-  deleted_at: string | null;
-  deleted_kind: "user" | "admin" | null;
-  created_at: string;
-  author_id: string;
-  author: RawAuthor | RawAuthor[] | null;
+  author: unknown;
 };
