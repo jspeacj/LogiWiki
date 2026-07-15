@@ -4,11 +4,12 @@ import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { BookOpen, CalendarDays, Eye, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
-import { getBookComments, hasRecommended } from "@/lib/wiki/social";
+import { getBookComments, hasRecommended, hasBookmarked } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { RecommendButton } from "@/components/wiki/recommend-button";
+import { BookmarkButton } from "@/components/wiki/bookmark-button";
 import { BookComments } from "@/components/wiki/book-comments";
 import { AdminEditLink } from "@/components/wiki/admin-edit-link";
 
@@ -56,10 +57,14 @@ export default async function BookLandingPage({
   // 발행본만 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
   if (isPublished) after(() => recordBookView(book.id));
 
-  // 추천/댓글은 발행된 서적에서만(RLS 도 동일 강제).
-  const [comments, recommended] = isPublished
-    ? await Promise.all([getBookComments(book.id), hasRecommended(book.id)])
-    : [[], false];
+  // 추천/댓글/즐겨찾기는 발행된 서적에서만(RLS 도 동일 강제).
+  const [comments, recommended, bookmarked] = isPublished
+    ? await Promise.all([
+        getBookComments(book.id),
+        hasRecommended(book.id),
+        hasBookmarked(book.id),
+      ])
+    : [[], false, false];
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-10">
@@ -134,6 +139,13 @@ export default async function BookLandingPage({
               slug={book.slug}
               initialCount={book.recommend_count}
               initialRecommended={recommended}
+            />
+          )}
+          {isPublished && (
+            <BookmarkButton
+              bookId={book.id}
+              slug={book.slug}
+              initialBookmarked={bookmarked}
             />
           )}
           {/* 관리자에게만 보임 — 발행 후에도 여기서 바로 편집기로 넘어간다. */}

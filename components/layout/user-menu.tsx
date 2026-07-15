@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, MessagesSquare, Settings, ShieldCheck } from "lucide-react";
+import { Bookmark, LogOut, MessagesSquare, Settings, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth/context";
 import { cn } from "@/lib/utils";
 
@@ -111,6 +111,15 @@ export function UserMenu() {
           >
             <MessagesSquare className="size-4 text-accent-cyan" />
             자유게시판
+          </Link>
+          <Link
+            href="/favorites"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-muted-strong transition-colors hover:bg-white/[0.05] hover:text-foreground"
+          >
+            <Bookmark className="size-4 text-brand" />
+            즐겨찾기
           </Link>
           <Link
             href="/account"

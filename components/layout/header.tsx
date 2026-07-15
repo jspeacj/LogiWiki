@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { siteConfig } from "@/lib/site";
+import { useAuth } from "@/lib/auth/context";
 import { AppsMenu } from "./apps-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -12,6 +13,9 @@ import { UserMenu } from "./user-menu";
  * 우측: 테마 토글 + 계정. 마크업은 다크 기준 오버레이 유틸(라이트는 globals.css 재매핑).
  */
 export function Header() {
+  // 즐겨찾기는 로그인 사용자 전용 진입점이라 세션이 있을 때만 노출한다.
+  // (표시 분기용 — 실제 접근 제어는 /favorites 페이지가 서버에서 강제.)
+  const { user } = useAuth();
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-5 sm:gap-4">
@@ -46,6 +50,14 @@ export function Header() {
           >
             퀴즈
           </Link>
+          {user && (
+            <Link
+              href="/favorites"
+              className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground"
+            >
+              즐겨찾기
+            </Link>
+          )}
           <Link
             href="/community"
             className="hidden rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground sm:inline-flex"

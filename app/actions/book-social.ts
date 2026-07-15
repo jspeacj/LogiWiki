@@ -16,6 +16,12 @@ export type ActionState = {
   error?: string;
 };
 
+export type BookmarkState = {
+  ok?: boolean;
+  bookmarked?: boolean;
+  error?: string;
+};
+
 async function requireUser() {
   const supabase = await createClient();
   const {
@@ -73,6 +79,47 @@ export async function toggleRecommend(
 
   if (slug) revalidatePath(`/book/${slug}`);
   return { ok: true, recommended, count: data?.recommend_count ?? 0 };
+}
+
+/**
+ * 서적 즐겨찾기 토글(로그인 필수, 비공개).
+ * insert 시도 → 23505(중복)면 delete 로 토글 해제. 추천과 달리 공개 카운터가 없다.
+ * RLS 로 발행된 서적만 즐겨찾기 가능(비발행이면 insert 거부 → WRITE_FAILED).
+ */
+export async function toggleBookmark(
+  bookId: string,
+  slug?: string,
+): Promise<BookmarkState> {
+  const parsed = z.string().uuid().safeParse(bookId);
+  if (!parsed.success) return { error: "VALIDATION" };
+
+  const session = await requireUser();
+  if (!session) return { error: "UNAUTHENTICATED" };
+
+  const { supabase, user } = session;
+  let bookmarked = true;
+
+  const { error: insErr } = await supabase
+    .from("book_bookmarks")
+    .insert({ book_id: bookId, user_id: user.id });
+
+  if (insErr) {
+    if (insErr.code === "23505") {
+      // 이미 즐겨찾기함 → 토글 해제.
+      await supabase
+        .from("book_bookmarks")
+        .delete()
+        .eq("book_id", bookId)
+        .eq("user_id", user.id);
+      bookmarked = false;
+    } else {
+      return { error: "WRITE_FAILED" };
+    }
+  }
+
+  if (slug) revalidatePath(`/book/${slug}`);
+  revalidatePath("/favorites");
+  return { ok: true, bookmarked };
 }
 
 const CommentSchema = z.object({

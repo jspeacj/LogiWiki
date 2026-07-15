@@ -82,6 +82,8 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - `0010_rankings_sort` — `top_books` 에 `p_sort`(종합/조회수/추천수) 추가. 3인자 구버전은 DROP(오버로드 모호성 방지)
 - `0011_dynamic_topics` — **토픽을 DB 로 이전**(`public.topics`) + AI 자동 생성 설정(`ai_settings`) (**필수**)
 - `0012_ascii_slugs` — slug 를 ASCII 로 강제(기존 한글 slug 정규화 + CHECK 제약) (**필수**)
+- `0013_publish_admin_only` — 발행(published)은 소스 무관 **관리자만**, INSERT 경로까지 차단 (**필수**)
+- `0014_bookmarks` — 서적 즐겨찾기(`public.book_bookmarks`, 비공개·owner 전용 RLS, 카운터 없음) (**필수**)
 
 ## 토픽 SSOT = DB (`public.topics`)
 

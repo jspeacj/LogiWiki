@@ -144,6 +144,50 @@ export async function listBooks(
   };
 }
 
+/**
+ * 현재 로그인 사용자가 즐겨찾기한 **발행된** 서적 목록(최근 추가순).
+ * 비로그인/미설정이면 빈 배열. RLS(book_bookmarks_select_own)로 본인 것만 읽힌다.
+ *
+ * 2단계 쿼리다. book_bookmarks → books 를 한 번에 임베드하지 않는 이유:
+ * books↔profiles 경로가 둘이라(직접 FK + book_recommendations 경유) 중첩 임베드가
+ * PGRST201(모호성)로 거부될 위험이 있다(BOOK_LIST_COLUMNS 주석 참고). 먼저 즐겨찾기한
+ * book_id 를 최근순으로 뽑고, 검증된 books 조회를 `.in()` 으로 재사용한다.
+ */
+export async function listBookmarkedBooks(): Promise<BookListItem[]> {
+  const supabase = await getReadClient();
+  if (!supabase) return [];
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  // 1) 내 즐겨찾기 book_id (최근 추가순). RLS 로 본인 행만.
+  const { data: marks, error: markErr } = await supabase
+    .from("book_bookmarks")
+    .select("book_id, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+  logQueryError("listBookmarkedBooks:marks", markErr);
+  if (markErr || !marks || marks.length === 0) return [];
+
+  const order = new Map<string, number>();
+  (marks as Array<{ book_id: string }>).forEach((m, i) => order.set(m.book_id, i));
+  const ids = [...order.keys()];
+
+  // 2) 발행된 서적만 상세 조회(발행 취소된 것 제외). 반환 순서는 즐겨찾기 순으로 복원.
+  const { data, error } = await supabase
+    .from("books")
+    .select(BOOK_LIST_COLUMNS)
+    .in("id", ids)
+    .eq("status", "published");
+  logQueryError("listBookmarkedBooks:books", error);
+  if (error || !data) return [];
+
+  return (data as Record<string, unknown>[])
+    .map(mapBook)
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
 /** flat 챕터 배열 → parent_id/sort_order 로 메모리 트리 조립. */
 function buildTree(
   rows: Array<Omit<ChapterNode, "children">>,
