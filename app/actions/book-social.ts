@@ -2,37 +2,11 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser, isRateLimited, type ActionState } from "@/lib/auth/actions";
 
-export type RecommendState = {
-  ok?: boolean;
-  recommended?: boolean;
-  count?: number;
-  error?: string;
-};
-
-export type ActionState = {
-  ok?: boolean;
-  error?: string;
-};
-
-export type BookmarkState = {
-  ok?: boolean;
-  bookmarked?: boolean;
-  error?: string;
-};
-
-async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user ? { supabase, user } : null;
-}
-
-function isRateLimited(error: { message?: string } | null): boolean {
-  return !!error?.message?.includes("RATE_LIMITED");
-}
+export type { ActionState };
+export type RecommendState = ActionState & { recommended?: boolean; count?: number };
+export type BookmarkState = ActionState & { bookmarked?: boolean };
 
 /**
  * 서적 추천 토글(1인 1서적 1회).

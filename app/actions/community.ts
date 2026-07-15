@@ -3,16 +3,16 @@
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { CATEGORIES, isAdminOnlyCategory } from "@/lib/community/types";
 import { isAdminEmail } from "@/lib/auth/admin";
+import {
+  requireUser,
+  isRateLimited,
+  type ActionState as BaseActionState,
+} from "@/lib/auth/actions";
 
-/** 폼 액션 반환 상태(useActionState). */
-export type ActionState = {
-  ok?: boolean;
-  error?: string;
-  fieldErrors?: Record<string, string>;
-};
+/** 폼 액션 반환 상태(useActionState). 커뮤니티는 필드별 오류를 더 싣는다. */
+export type ActionState = BaseActionState & { fieldErrors?: Record<string, string> };
 
 const PostSchema = z.object({
   category: z.enum(CATEGORIES),
@@ -30,20 +30,6 @@ const CommentEditSchema = z.object({
   postId: z.string().uuid(),
   content: z.string().trim().min(1).max(5000),
 });
-
-/** rate-limit 트리거(0003_community.sql)가 던진 예외인지 판별. */
-function isRateLimited(error: { message?: string } | null): boolean {
-  return !!error?.message?.includes("RATE_LIMITED");
-}
-
-/** 로그인 사용자 반환, 없으면 null. */
-async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user ? { supabase, user } : null;
-}
 
 /** 게시글 작성 → 상세로 이동. */
 export async function createPost(

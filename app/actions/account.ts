@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/actions";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { isNicknameTaken } from "@/lib/auth/nickname";
 import {
@@ -26,11 +26,9 @@ export async function updateNickname(
   _prev: AccountState,
   formData: FormData,
 ): Promise<AccountState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "UNAUTHENTICATED" };
+  const session = await requireUser();
+  if (!session) return { error: "UNAUTHENTICATED" };
+  const { supabase, user } = session;
 
   const nickname = String(formData.get("nickname") ?? "").trim();
 

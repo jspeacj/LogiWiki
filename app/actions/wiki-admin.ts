@@ -2,22 +2,12 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/auth/admin";
+import { requireAdmin, type ActionState } from "@/lib/auth/actions";
 import { topicExists } from "@/lib/wiki/topics-db";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 import { MODEL_DRAFT } from "@/lib/ai/claude";
 
-export type AdminActionState = { ok?: boolean; error?: string };
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) return null;
-  return { supabase, user };
-}
+export type AdminActionState = ActionState;
 
 const DAILY_CAP = 5;
 

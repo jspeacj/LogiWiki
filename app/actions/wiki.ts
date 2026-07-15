@@ -2,44 +2,20 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/auth/admin";
+import { requireAdmin, isRateLimited, type ActionState } from "@/lib/auth/actions";
 import { topicExists } from "@/lib/wiki/topics-db";
 import { shortSuffix, slugify } from "@/lib/slug";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 
-export type WikiActionState = {
-  ok?: boolean;
-  id?: string;
-  slug?: string;
-  error?: string;
-};
-
-function isRateLimited(error: { message?: string } | null): boolean {
-  return !!error?.message?.includes("RATE_LIMITED");
-}
-
 /**
  * 서적 계열 쓰기는 전부 관리자 전용이다.
  *
- * 서버 액션은 UI 가 아니라 **공개 HTTP 엔드포인트**다. 예전엔 로그인만 확인해서,
- * 아무나 가입 → createBook(source='human' 강제, 본인이 저자) → upsertChapter →
- * setBookStatus('published') 순으로 호출하면 홈·목록·sitemap 에 즉시 게시됐다.
- * RLS(books_update_own: 저자면 통과)도 발행 트리거(source='ai' 만 차단)도 human
- * 소스는 그냥 통과시키므로 DB 도 막지 못했다 — "사람 검수 없이는 발행 없음" 이라는
- * 이 플랫폼의 전제가 통째로 뚫리는 경로였다.
- *
- * 서적 작성 UI 는 /admin 에만 있으므로 일반 사용자가 이 액션을 부를 정당한 경로는 없다.
- * DB 쪽도 0013 에서 "published 전이는 언제나 is_admin()" 으로 좁혔다(2중 방어).
+ * 서버 액션은 UI 가 아니라 **공개 HTTP 엔드포인트**다 — 관리자 UI 를 숨긴 것만으로는 못 막는다.
+ * 예전엔 로그인만 확인해 아무나 createBook → upsertChapter → setBookStatus('published') 로
+ * 홈·목록·sitemap 에 즉시 게시할 수 있었다. 이제 모든 mutation 이 requireAdmin(lib/auth/actions)
+ * 을 통과하고, DB 도 0013 에서 "published 전이는 언제나 is_admin()" 으로 좁혔다(2중 방어).
  */
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !isAdminEmail(user.email)) return null;
-  return { supabase, user };
-}
+export type WikiActionState = ActionState & { id?: string; slug?: string };
 
 const BookSchema = z.object({
   title: z.string().trim().min(1).max(200),
