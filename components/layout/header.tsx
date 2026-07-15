@@ -5,6 +5,7 @@ import { BookOpen } from "lucide-react";
 import { siteConfig } from "@/lib/site";
 import { useAuth } from "@/lib/auth/context";
 import { AppsMenu } from "./apps-menu";
+import { MobileNav } from "./mobile-nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
 
@@ -27,14 +28,18 @@ export function Header() {
           <span className="text-[15px] tracking-tight">{siteConfig.shortName}</span>
         </Link>
 
-        {/* 주 내비게이션 — 로고 옆 좌측 그룹 */}
+        {/* 주 내비게이션 — 로고 옆 좌측 그룹.
+            모바일에서는 링크가 잘리므로 햄버거(MobileNav)로 전 목적지를 모으고, 인라인 링크는
+            sm+ 에서만 보인다. AppsMenu(앱 런처)는 모바일에서도 유지. */}
         <nav className="flex items-center gap-0.5 text-sm text-muted">
           {/* 교차 유입 허브 — 항상 첫 카테고리로 고정 */}
           <AppsMenu />
+          {/* 모바일 전용 햄버거 — sm+ 에서는 숨는다 */}
+          <MobileNav />
           {/* 로고가 홈(/)이므로 여기는 전체 서적 목록으로 보낸다. */}
           <Link
             href="/books"
-            className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground"
+            className="hidden rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground sm:inline-flex"
           >
             서적
           </Link>
@@ -46,14 +51,14 @@ export function Header() {
           </Link>
           <Link
             href="/quiz"
-            className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground"
+            className="hidden rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground sm:inline-flex"
           >
             퀴즈
           </Link>
           {user && (
             <Link
               href="/favorites"
-              className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground"
+              className="hidden rounded-full px-3 py-1.5 transition-colors hover:bg-white/[0.04] hover:text-foreground sm:inline-flex"
             >
               즐겨찾기
             </Link>
