@@ -13,23 +13,11 @@ import {
 import { useAuth } from "@/lib/auth/context";
 import { formatRelativeOrDate } from "@/lib/community/format";
 import type { BookCommentItem } from "@/lib/wiki/social";
+import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-function errorText(code?: string): string | undefined {
-  switch (code) {
-    case undefined:
-      return undefined;
-    case "UNAUTHENTICATED":
-      return "로그인이 필요합니다.";
-    case "VALIDATION":
-      return "댓글 내용을 확인해 주세요.";
-    case "RATE_LIMITED":
-      return "너무 빠릅니다. 잠시 후 다시 시도해 주세요.";
-    default:
-      return "저장에 실패했습니다. 다시 시도해 주세요.";
-  }
-}
+const ERR = { VALIDATION: "댓글 내용을 확인해 주세요." };
 
 export function BookComments({
   bookId,
@@ -82,7 +70,7 @@ function CommentForm({ bookId, slug }: { bookId: string; slug: string }) {
     {},
   );
   const [value, setValue] = useState("");
-  const err = errorText(state.error);
+  const err = errorText(state.error, ERR);
 
   return (
     <form

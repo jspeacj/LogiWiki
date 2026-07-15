@@ -75,3 +75,42 @@ export function parseBookSort(value: unknown): BookSort {
     ? (value as BookSort)
     : "recent";
 }
+
+// ── 표시 라벨/스타일 (SSOT) ────────────────────────────────────────────────
+// 관리자 UI 여러 곳에서 복붙되던 맵을 한곳에 모은다. 상태 배지 스타일은 Tailwind 리터럴
+// 문자열 그대로 둔다(스캐너가 클래스를 생성해야 하므로 동적 조합 금지).
+
+/** 서적 상태 → 표시 라벨. */
+export const BOOK_STATUS_LABEL: Record<string, string> = {
+  draft: "초안",
+  in_review: "검수중",
+  published: "발행됨",
+  archived: "보관",
+};
+
+/** 서적 상태 → 배지 스타일(Tailwind 리터럴). */
+export const BOOK_STATUS_STYLE: Record<string, string> = {
+  draft: "border-white/12 bg-white/[0.04] text-muted-strong",
+  in_review: "border-accent-amber/30 bg-accent-amber/10 text-accent-amber",
+  published: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300",
+  archived: "border-white/10 bg-white/[0.02] text-muted",
+};
+
+/** 언어 코드 → 표시 라벨. */
+export const LANGUAGE_LABEL: Record<string, string> = {
+  ko: "한국어",
+  en: "영어",
+  ja: "일본어",
+  zh: "중국어",
+  es: "스페인어",
+};
+
+/**
+ * 퀴즈 난이도 → 표시 라벨. (원천은 quiz 도메인이지만 quizzes.ts 가 server-only 라
+ * 클라이언트 컴포넌트에서 못 읽는다 → 클라이언트-안전한 이 모듈에 둔다.)
+ */
+export const DIFFICULTY_LABEL: Record<string, string> = {
+  easy: "쉬움",
+  medium: "보통",
+  hard: "어려움",
+};

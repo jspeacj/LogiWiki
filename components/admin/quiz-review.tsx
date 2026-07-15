@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Sparkles, Trash2 } from "lucide-react";
 import { approveQuiz, rejectQuiz } from "@/app/actions/wiki-admin";
+import { DIFFICULTY_LABEL } from "@/lib/wiki/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +18,6 @@ export interface DraftQuiz {
   answer: string;
   explanation: string;
 }
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  easy: "쉬움",
-  medium: "보통",
-  hard: "어려움",
-};
 
 /**
  * 검수 대기 퀴즈 — 승인(출제 시작) / 반려(삭제).

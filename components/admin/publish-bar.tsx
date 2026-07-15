@@ -5,21 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { deleteBook, setBookStatus } from "@/app/actions/wiki";
+import {
+  BOOK_STATUS_LABEL as STATUS_LABEL,
+  BOOK_STATUS_STYLE as STATUS_STYLE,
+} from "@/lib/wiki/types";
 import { Button } from "@/components/ui/button";
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "초안",
-  in_review: "검수중",
-  published: "발행됨",
-  archived: "보관",
-};
-
-const STATUS_STYLE: Record<string, string> = {
-  draft: "border-white/12 bg-white/[0.04] text-muted-strong",
-  in_review: "border-accent-amber/30 bg-accent-amber/10 text-accent-amber",
-  published: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300",
-  archived: "border-white/10 bg-white/[0.02] text-muted",
-};
 
 /**
  * 발행 상태 전환 + 미리보기 + 삭제.

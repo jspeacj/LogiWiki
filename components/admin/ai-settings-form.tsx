@@ -7,25 +7,14 @@ import {
   type AdminActionState,
   type AiSettings,
 } from "@/app/actions/wiki-admin";
-import { BOOK_LANGUAGES } from "@/lib/wiki/types";
+import { BOOK_LANGUAGES, LANGUAGE_LABEL } from "@/lib/wiki/types";
+import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-const LANGUAGE_LABEL: Record<string, string> = {
-  ko: "한국어",
-  en: "영어",
-  ja: "일본어",
-  zh: "중국어",
-  es: "스페인어",
-};
-
-const ERROR_MESSAGES: Record<string, string> = {
-  FORBIDDEN: "관리자만 변경할 수 있습니다.",
-  VALIDATION: "입력 내용을 확인해 주세요.",
-  WRITE_FAILED: "저장에 실패했습니다.",
-};
+const ERR = { FORBIDDEN: "관리자만 변경할 수 있습니다." };
 
 const COUNTS = [0, 1, 2, 3, 4, 5];
 
@@ -154,7 +143,7 @@ export function AiSettingsForm({
       )}
       {state.error && (
         <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
-          {ERROR_MESSAGES[state.error] ?? ERROR_MESSAGES.WRITE_FAILED}
+          {errorText(state.error, ERR)}
         </p>
       )}
 

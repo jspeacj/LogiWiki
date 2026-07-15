@@ -4,27 +4,13 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBook, updateBook, type WikiActionState } from "@/app/actions/wiki";
 import type { Topic } from "@/lib/wiki/topics";
-import { BOOK_LANGUAGES } from "@/lib/wiki/types";
+import { BOOK_LANGUAGES, LANGUAGE_LABEL } from "@/lib/wiki/types";
+import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-const LANGUAGE_LABEL: Record<string, string> = {
-  ko: "한국어",
-  en: "영어",
-  ja: "일본어",
-  zh: "중국어",
-  es: "스페인어",
-};
-
-const ERROR_MESSAGES: Record<string, string> = {
-  UNAUTHENTICATED: "로그인이 필요합니다.",
-  VALIDATION: "입력 내용을 확인해 주세요.",
-  RATE_LIMITED: "너무 자주 작성했습니다. 잠시 후 다시 시도해 주세요.",
-  WRITE_FAILED: "저장에 실패했습니다.",
-};
 
 export interface BookFormValues {
   id: string;
@@ -118,7 +104,7 @@ export function BookForm({ book, topics }: { book?: BookFormValues; topics: Topi
       )}
       {state.error && (
         <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
-          {ERROR_MESSAGES[state.error] ?? ERROR_MESSAGES.WRITE_FAILED}
+          {errorText(state.error)}
         </p>
       )}
 

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { errorText } from "@/lib/wiki/messages";
 import { cn } from "@/lib/utils";
 
 export interface ChapterRow {
@@ -22,8 +23,8 @@ export interface ChapterRow {
   sort_order: number;
 }
 
-const ERROR_MESSAGES: Record<string, string> = {
-  UNAUTHENTICATED: "로그인이 필요합니다.",
+// 슬러그 관련 힌트만 특수 문구로 덮고 나머지는 공용 문구를 쓴다.
+const ERR = {
   VALIDATION: "입력 내용을 확인해 주세요. (슬러그·제목 필수)",
   WRITE_FAILED: "저장에 실패했습니다. 슬러그가 중복되지 않는지 확인해 주세요.",
 };
@@ -209,7 +210,7 @@ export function ChapterEditor({
             )}
             {state.error && (
               <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
-                {ERROR_MESSAGES[state.error] ?? ERROR_MESSAGES.WRITE_FAILED}
+                {errorText(state.error, ERR)}
               </p>
             )}
 

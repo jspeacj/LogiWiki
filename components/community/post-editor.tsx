@@ -15,6 +15,7 @@ import {
   type Category,
 } from "@/lib/community/types";
 import { useAuth } from "@/lib/auth/context";
+import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,14 +29,7 @@ type EditTarget = {
   content: string;
 };
 
-/** 서버 액션 에러 코드 → 한글 메시지. */
-const ERROR_MESSAGES: Record<string, string> = {
-  UNAUTHENTICATED: "로그인이 필요합니다.",
-  VALIDATION: "입력 내용을 확인해 주세요.",
-  FORBIDDEN: "작성 권한이 없습니다.",
-  RATE_LIMITED: "너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
-  WRITE_FAILED: "저장에 실패했습니다. 다시 시도해 주세요.",
-};
+const ERR = { FORBIDDEN: "작성 권한이 없습니다." };
 
 /** 글 작성/수정 폼. initial 이 있으면 수정 모드(updatePost), 없으면 작성 모드(createPost). */
 export function PostEditor({ initial }: { initial?: EditTarget }) {
@@ -111,7 +105,7 @@ export function PostEditor({ initial }: { initial?: EditTarget }) {
 
       {state.error && (
         <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
-          {ERROR_MESSAGES[state.error] ?? ERROR_MESSAGES.WRITE_FAILED}
+          {errorText(state.error, ERR)}
         </p>
       )}
 

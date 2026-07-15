@@ -6,6 +6,10 @@ import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { getTopicMap } from "@/lib/wiki/topics-db";
 import { canonical } from "@/lib/site";
+import {
+  BOOK_STATUS_LABEL as STATUS_LABEL,
+  BOOK_STATUS_STYLE as STATUS_STYLE,
+} from "@/lib/wiki/types";
 
 export const metadata: Metadata = {
   title: "서적 관리",
@@ -14,20 +18,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "초안",
-  in_review: "검수중",
-  published: "발행됨",
-  archived: "보관",
-};
-
-const STATUS_STYLE: Record<string, string> = {
-  draft: "border-white/12 bg-white/[0.04] text-muted-strong",
-  in_review: "border-accent-amber/30 bg-accent-amber/10 text-accent-amber",
-  published: "border-emerald-400/30 bg-emerald-500/10 text-emerald-300",
-  archived: "border-white/10 bg-white/[0.02] text-muted",
-};
 
 type BookRow = {
   id: string;

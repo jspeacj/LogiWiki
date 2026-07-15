@@ -6,16 +6,12 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { gradeQuiz, type QuizGradeState } from "@/app/actions/quiz";
 import type { QuizPublic } from "@/lib/wiki/quizzes";
+import { DIFFICULTY_LABEL } from "@/lib/wiki/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
-const DIFFICULTY_LABEL: Record<string, string> = {
-  easy: "쉬움",
-  medium: "보통",
-  hard: "어려움",
-};
-
+// 채점 도메인 전용 문구(코드·폴백이 폼 액션과 달라 공용 messages 를 쓰지 않는다).
 const ERROR_MESSAGE: Record<string, string> = {
   RATE_LIMITED: "채점 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
   NOT_FOUND: "문제를 찾을 수 없습니다. 다음 문제로 넘어가 주세요.",

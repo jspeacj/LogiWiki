@@ -3,23 +3,15 @@
 import { useActionState } from "react";
 import { enqueueGeneration, type AdminActionState } from "@/app/actions/wiki-admin";
 import type { Topic } from "@/lib/wiki/topics";
-import { BOOK_LANGUAGES } from "@/lib/wiki/types";
+import { BOOK_LANGUAGES, LANGUAGE_LABEL } from "@/lib/wiki/types";
+import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
-const LANGUAGE_LABEL: Record<string, string> = {
-  ko: "한국어",
-  en: "영어",
-  ja: "일본어",
-  zh: "중국어",
-  es: "스페인어",
-};
-
-const ERROR_MESSAGES: Record<string, string> = {
+const ERR = {
   FORBIDDEN: "관리자만 요청할 수 있습니다.",
-  VALIDATION: "입력 내용을 확인해 주세요.",
   DAILY_CAP: "오늘 생성 한도(5건)를 초과했습니다.",
   WRITE_FAILED: "요청에 실패했습니다.",
 };
@@ -78,7 +70,7 @@ export function GenerateForm({ topics }: { topics: Topic[] }) {
       )}
       {state.error && (
         <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
-          {ERROR_MESSAGES[state.error] ?? ERROR_MESSAGES.WRITE_FAILED}
+          {errorText(state.error, ERR)}
         </p>
       )}
 

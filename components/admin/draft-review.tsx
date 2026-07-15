@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pencil, Sparkles } from "lucide-react";
 import { approveBook, rejectBook } from "@/app/actions/wiki-admin";
+import { BOOK_STATUS_LABEL as STATUS_LABEL } from "@/lib/wiki/types";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +18,6 @@ type Draft = {
   source: string;
   status: string;
   created_at: string;
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  draft: "초안",
-  in_review: "검수중",
 };
 
 /** 검수 대기 초안 목록 — 승인/반려 액션 포함(관리자 전용). */
