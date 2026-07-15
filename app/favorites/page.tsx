@@ -43,7 +43,11 @@ export default async function FavoritesPage({
   if (!auth?.user) redirect("/login");
 
   const query = await searchParams;
-  const [all, topics] = await Promise.all([listBookmarkedBooks(), getTopics()]);
+  // getServerAuth 가 이미 세션을 확인했으므로 그 client·userId 를 넘겨 getUser 왕복을 아낀다.
+  const [all, topics] = await Promise.all([
+    listBookmarkedBooks({ supabase: auth.supabase, userId: auth.user.id }),
+    getTopics(),
+  ]);
 
   // 토픽별 개수·라벨(전체 기준). 칩과 섹션 헤더가 함께 쓴다.
   const countByTopic = new Map<string, number>();

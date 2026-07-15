@@ -51,11 +51,3 @@ export async function getReadClient(): Promise<SupabaseClient | null> {
   }
   return createClient();
 }
-
-/** Supabase env 가 설정돼 있는지. */
-export function hasSupabaseEnv(): boolean {
-  return (
-    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-}

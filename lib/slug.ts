@@ -9,9 +9,6 @@
  * 한글 제목이면 slug 로 남길 ASCII 가 없을 수 있으므로, 호출부가 fallback 을 넘긴다.
  */
 
-/** 허용 문자: 영문 소문자·숫자·하이픈. */
-export const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
-
 export function slugify(input: string, fallback = "untitled"): string {
   const slug = input
     .toLowerCase()

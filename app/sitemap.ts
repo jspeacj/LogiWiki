@@ -7,10 +7,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 색인 차단(임시 운영) 상태에서는 빈 사이트맵을 반환해 조기 색인을 막는다.
   if (NOINDEX) return [];
 
-  // 발행·검증된 서적/챕터만 등록(초안·검수중·보관은 제외).
-  const bookUrls = await getPublishedSitemapUrls();
-
-  const topics = await getTopics();
+  // 발행·검증된 서적/챕터만 등록(초안·검수중·보관은 제외). 서로 독립적이라 병렬로 읽는다.
+  const [bookUrls, topics] = await Promise.all([
+    getPublishedSitemapUrls(),
+    getTopics(),
+  ]);
   const topicEntries: MetadataRoute.Sitemap = topics.map(({ slug }) => ({
     url: `${SITE_URL}/topic/${slug}`,
     changeFrequency: "weekly",

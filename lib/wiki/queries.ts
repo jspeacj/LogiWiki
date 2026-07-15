@@ -2,7 +2,7 @@ import "server-only";
 import { getPublicClient, getReadClient } from "@/lib/supabase/read";
 
 import { cache } from "react";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileRef } from "@/lib/auth/types";
 import type {
   BookDetail,
@@ -152,20 +152,33 @@ export async function listBooks(
  * books↔profiles 경로가 둘이라(직접 FK + book_recommendations 경유) 중첩 임베드가
  * PGRST201(모호성)로 거부될 위험이 있다(BOOK_LIST_COLUMNS 주석 참고). 먼저 즐겨찾기한
  * book_id 를 최근순으로 뽑고, 검증된 books 조회를 `.in()` 으로 재사용한다.
+ *
+ * 호출부(/favorites)가 이미 세션을 확인했다면 그 client·userId 를 넘겨 getUser 왕복을
+ * 한 번 아낀다(auth 인자). 없으면 자체적으로 세션을 확인한다.
  */
-export async function listBookmarkedBooks(): Promise<BookListItem[]> {
-  const supabase = await getReadClient();
-  if (!supabase) return [];
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
+export async function listBookmarkedBooks(
+  auth?: { supabase: SupabaseClient; userId: string },
+): Promise<BookListItem[]> {
+  let supabase: SupabaseClient | null;
+  let userId: string;
+  if (auth) {
+    supabase = auth.supabase;
+    userId = auth.userId;
+  } else {
+    supabase = await getReadClient();
+    if (!supabase) return [];
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+    userId = user.id;
+  }
 
   // 1) 내 즐겨찾기 book_id (최근 추가순). RLS 로 본인 행만.
   const { data: marks, error: markErr } = await supabase
     .from("book_bookmarks")
     .select("book_id, created_at")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
   logQueryError("listBookmarkedBooks:marks", markErr);
   if (markErr || !marks || marks.length === 0) return [];
@@ -208,20 +221,6 @@ function buildTree(
   };
   sortRec(roots);
   return roots;
-}
-
-/** 서적의 목차 트리(본문 제외). */
-export async function getChapterTree(bookId: string): Promise<ChapterNode[]> {
-  const supabase = await getReadClient();
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("chapters")
-    .select("id, book_id, parent_id, slug, title, sort_order")
-    .eq("book_id", bookId)
-    .order("sort_order", { ascending: true });
-  logQueryError("getChapterTree", error);
-  if (error || !data) return [];
-  return buildTree(data as Array<Omit<ChapterNode, "children">>);
 }
 
 /**
@@ -276,29 +275,17 @@ export const getChapter = cache(async function getChapter(
   return data as ChapterDetail;
 });
 
-/** sitemap·generateStaticParams 용: 발행된 서적의 (slug, language). */
-export async function getPublishedBookSlugs(): Promise<
-  Array<{ slug: string; language: string; updated_at: string }>
-> {
-  const supabase = await getReadClient();
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("books")
-    .select("slug, language, updated_at")
-    .eq("status", "published")
-    .not("published_at", "is", null);
-  if (error || !data) return [];
-  return data as Array<{ slug: string; language: string; updated_at: string }>;
-}
-
 /**
  * sitemap 용: 발행 서적의 랜딩 + 챕터 경로(+lastmod). NOINDEX 면 sitemap.ts 가 애초에 호출 안 함.
  * 발행·검증된 것만 색인한다는 규칙의 렌더측 절반(DB측은 RLS).
+ *
+ * 발행 데이터만 읽으므로 세션이 필요 없다 → 쿠키 없는 anon 클라이언트로 읽어 sitemap 라우트가
+ * dynamic 으로 떨어지지 않게 한다(cookies() 접근이 정적화를 막는 것을 회피).
  */
 export async function getPublishedSitemapUrls(): Promise<
   Array<{ path: string; lastmod: string }>
 > {
-  const supabase = await getReadClient();
+  const supabase = getPublicClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("books")
@@ -330,13 +317,8 @@ export async function getPublishedSitemapUrls(): Promise<
  * 공개 RPC 라 세션이 필요 없으므로, 쿠키 없는 순수 anon 클라이언트로 호출한다.
  */
 export async function recordBookView(bookId: string): Promise<void> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return;
-
-  const supabase = createSupabaseClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = getPublicClient();
+  if (!supabase) return;
   const { error } = await supabase.rpc("record_book_view", { p_book_id: bookId });
   logQueryError("recordBookView", error);
 }

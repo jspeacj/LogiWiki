@@ -1,5 +1,5 @@
 import "server-only";
-import { getReadClient } from "@/lib/supabase/read";
+import { getPublicClient } from "@/lib/supabase/read";
 
 export type RankWindow = "week" | "month" | "year";
 const WINDOW_DAYS: Record<RankWindow, number> = { week: 7, month: 30, year: 365 };
@@ -57,7 +57,9 @@ export async function topBooks({
   sort = "score",
   limit = 20,
 }: TopBooksParams): Promise<RankedBook[]> {
-  const supabase = await getReadClient();
+  // top_books 는 security definer 공개 RPC 라 세션이 필요 없다 → 쿠키 없는 anon 클라이언트로
+  // 읽어 불필요한 cookies() 의존(동적화)을 피한다.
+  const supabase = getPublicClient();
   if (!supabase) return [];
   const { data, error } = await supabase.rpc("top_books", {
     p_window_days: WINDOW_DAYS[window],
