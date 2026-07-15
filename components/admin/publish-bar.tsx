@@ -83,8 +83,11 @@ export function PublishBar({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        {/* 발행본은 공개 경로로 바로. 미발행은 /api/preview 로 draftMode 를 켜야 ISR 챕터
+            페이지에서도 draft 가 보인다. prefetch=false: 프리페치가 미리보기 쿠키를 건드리지 않게. */}
         <Link
-          href={`/book/${slug}`}
+          href={isPublished ? `/book/${slug}` : `/api/preview?slug=${slug}`}
+          prefetch={isPublished ? undefined : false}
           className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.04] px-3.5 text-sm text-foreground transition-colors hover:border-white/25 hover:bg-white/[0.07]"
         >
           <ExternalLink className="size-4" strokeWidth={2} />

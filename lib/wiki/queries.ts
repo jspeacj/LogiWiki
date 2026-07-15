@@ -232,12 +232,16 @@ function buildTree(
  *   'ko' 로 필터하면 en/ja 서적이 목록엔 뜨는데 열면 404 가 된다. slug 는 생성 시
  *   랜덤 접미사가 붙어 사실상 유일하지만, 같은 slug 의 번역본이 있으면 선호 언어를 고른다.
  * - React cache: generateMetadata 와 페이지 본문이 같은 요청에서 두 번 호출해도 쿼리는 1회.
+ * - preview: false(기본)면 쿠키 없는 anon 클라이언트로 읽어 라우트가 ISR 로 캐시될 수 있게
+ *   한다(RLS 로 published 만). true(draftMode)면 세션 클라이언트로 저자/관리자의 draft 도
+ *   미리보기. cache 키에 preview 가 포함되므로 공개/미리보기 결과가 섞이지 않는다.
  */
 export const getBookBySlug = cache(async function getBookBySlug(
   slug: string,
   language = "ko",
+  preview = false,
 ): Promise<BookDetail | null> {
-  const supabase = await getReadClient();
+  const supabase = preview ? await getReadClient() : getPublicClient();
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("books")
@@ -257,12 +261,13 @@ export const getBookBySlug = cache(async function getBookBySlug(
   return { ...book, chapters };
 });
 
-/** 서적 내 단일 챕터(본문 포함). */
+/** 서적 내 단일 챕터(본문 포함). preview 는 getBookBySlug 와 동일 규칙(쿠키-프리 vs 세션). */
 export const getChapter = cache(async function getChapter(
   bookId: string,
   chapterSlug: string,
+  preview = false,
 ): Promise<ChapterDetail | null> {
-  const supabase = await getReadClient();
+  const supabase = preview ? await getReadClient() : getPublicClient();
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("chapters")

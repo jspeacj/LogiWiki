@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { after } from "next/server";
-import { ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, ChevronLeft, Clock, User } from "lucide-react";
-import { getBookBySlug, getChapter, recordBookView } from "@/lib/wiki/queries";
+import { draftMode } from "next/headers";
+import { ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, ChevronLeft, Clock, EyeOff, User } from "lucide-react";
+import { getBookBySlug, getChapter } from "@/lib/wiki/queries";
 import { extractHeadings, renderMarkdown } from "@/lib/wiki/markdown";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
@@ -13,8 +13,30 @@ import { Mermaid } from "@/components/wiki/mermaid";
 import { CodeCopy } from "@/components/wiki/code-copy";
 import { PageToc } from "@/components/wiki/page-toc";
 import { AdminEditLink } from "@/components/wiki/admin-edit-link";
+import { RecordView } from "@/components/wiki/record-view";
 
-export const dynamic = "force-dynamic";
+/**
+ * 챕터 페이지는 ISR.
+ *
+ * 검색 트래픽이 실제로 착지하는 최대 표면이고 렌더 비용(shiki 마크다운)이 크다. 세션에 의존하는
+ * 데이터가 없으므로(공개=발행본, 쿠키 없는 anon 읽기) 캐시할 수 있다. 내용 변경은 발행/편집 시
+ * revalidatePath(`/book/{slug}`, "layout")(app/actions/wiki.ts)로 즉시 무효화된다.
+ *
+ * 저자/관리자의 draft 미리보기는 draftMode(쿠키)로 격리한다 — 그 세션에서만 동적 렌더 +
+ * 세션 클라이언트로 draft 를 읽는다(아래 preview 분기).
+ */
+export const revalidate = 3600;
+
+/**
+ * 동적 파라미터 라우트를 ISR 로 전환하는 스위치.
+ *
+ * 빈 배열이면 빌드 때 아무것도 프리렌더하지 않되, 요청 시 온디맨드로 생성 후 revalidate 동안
+ * 캐시한다(dynamicParams 기본 true). 수백 개 챕터를 빌드에 프리렌더하지 않으면서 캐시 이점을
+ * 얻는다. 내용 변경은 발행/편집 시 revalidatePath 로 즉시 무효화된다.
+ */
+export function generateStaticParams(): Array<{ slug: string; chapterSlug: string }> {
+  return [];
+}
 
 /**
  * 한글 기준 읽기 시간(분). 코드블록은 훑어 읽으므로 분리해서 낮은 가중치를 준다.
@@ -34,9 +56,10 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug, chapterSlug } = await params;
-  const book = await getBookBySlug(slug);
+  const { isEnabled: preview } = await draftMode();
+  const book = await getBookBySlug(slug, "ko", preview);
   if (!book) return { title: "찾을 수 없음", robots: { index: false, follow: false } };
-  const chapter = await getChapter(book.id, chapterSlug);
+  const chapter = await getChapter(book.id, chapterSlug, preview);
   if (!chapter) return { title: "찾을 수 없음", robots: { index: false, follow: false } };
 
   const indexable = !NOINDEX && book.status === "published";
@@ -61,16 +84,13 @@ export default async function ChapterPage({
   params: Promise<Params>;
 }) {
   const { slug, chapterSlug } = await params;
-  const book = await getBookBySlug(slug);
+  const { isEnabled: preview } = await draftMode();
+  const book = await getBookBySlug(slug, "ko", preview);
   if (!book) notFound();
-  const chapter = await getChapter(book.id, chapterSlug);
+  const chapter = await getChapter(book.id, chapterSlug, preview);
   if (!chapter) notFound();
 
   const isPublished = book.status === "published";
-
-  // 렌더 경로 밖에서 조회수 기록(응답 지연 없음).
-  // 발행본만 집계한다 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
-  if (isPublished) after(() => recordBookView(book.id));
 
   const html = await renderMarkdown(chapter.body);
   // mermaid 는 무겁다. 다이어그램이 실제로 있는 챕터에서만 렌더러를 붙인다
@@ -88,6 +108,26 @@ export default async function ChapterPage({
   return (
     <div className="mx-auto max-w-6xl px-5 py-10">
       {isPublished && <ChapterJsonLd book={book} chapter={chapter} />}
+      {/* 조회수는 클라이언트에서 집계(ISR 캐시 히트에도 기록되도록). 미리보기(draft)는 제외. */}
+      {isPublished && !preview && <RecordView bookId={book.id} />}
+
+      {/* 미리보기 모드 배너 — draftMode 로 draft 를 보는 중임을 알리고 종료 경로를 준다. */}
+      {preview && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-4 py-3 text-sm text-accent-amber">
+          <span>
+            미리보기 모드 — 이 서적은 <strong>{book.status}</strong> 상태이며 검색에 노출되지
+            않습니다.
+          </span>
+          <Link
+            href="/api/preview/exit"
+            prefetch={false}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-accent-amber/40 px-2.5 py-1 font-medium transition-colors hover:bg-accent-amber/15"
+          >
+            <EyeOff className="size-3.5" strokeWidth={2.2} />
+            미리보기 종료
+          </Link>
+        </div>
+      )}
 
       {/* xl 부터 우측에 "이 페이지에서"(챕터 내 절 목차) 레일을 하나 더 연다. */}
       <div className="lg:grid lg:grid-cols-[16rem_1fr] lg:gap-10 xl:grid-cols-[16rem_1fr_14rem]">

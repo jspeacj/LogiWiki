@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
-import { BookOpen, CalendarDays, Eye, ThumbsUp, User } from "lucide-react";
+import { draftMode } from "next/headers";
+import { BookOpen, CalendarDays, Eye, EyeOff, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
 import { getBookComments, getBookInteractionState } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
@@ -23,7 +24,8 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const book = await getBookBySlug(slug);
+  const { isEnabled: preview } = await draftMode();
+  const book = await getBookBySlug(slug, "ko", preview);
   if (!book) return { title: "서적을 찾을 수 없습니다", robots: { index: false, follow: false } };
 
   const indexable = !NOINDEX && book.status === "published";
@@ -47,15 +49,16 @@ export default async function BookLandingPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  const book = await getBookBySlug(slug);
+  const { isEnabled: preview } = await draftMode();
+  const book = await getBookBySlug(slug, "ko", preview);
   if (!book) notFound();
 
   const firstChapter = flattenChapters(book.chapters)[0];
   const isPublished = book.status === "published";
 
-  // 랜딩도 조회로 집계한다(챕터 페이지와 동일). 렌더 경로 밖에서 fire-and-forget.
-  // 발행본만 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
-  if (isPublished) after(() => recordBookView(book.id));
+  // 랜딩은 동적이라 서버 after() 로 조회를 집계한다(챕터는 ISR 이라 클라이언트에서 집계).
+  // 발행본이면서 미리보기가 아닐 때만 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
+  if (isPublished && !preview) after(() => recordBookView(book.id));
 
   // 추천/댓글/즐겨찾기는 발행된 서적에서만(RLS 도 동일 강제).
   // 상호작용 상태(추천·즐겨찾기)는 한 번의 세션 확인으로 함께 읽는다.
@@ -67,10 +70,23 @@ export default async function BookLandingPage({
     <div className="mx-auto max-w-5xl px-5 py-10">
       {isPublished && <BookJsonLd book={book} />}
 
-      {/* 미발행 미리보기 배너(저자/관리자에게만 보임 — 비회원은 RLS 로 애초에 404) */}
+      {/* 미발행 미리보기 배너(draftMode 로 진입한 저자/관리자에게만 보임). */}
       {!isPublished && (
-        <div className="mb-6 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-4 py-3 text-sm text-accent-amber">
-          미리보기 — 이 서적은 아직 <strong>{book.status}</strong> 상태이며 검색에 노출되지 않습니다.
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent-amber/30 bg-accent-amber/10 px-4 py-3 text-sm text-accent-amber">
+          <span>
+            미리보기 — 이 서적은 아직 <strong>{book.status}</strong> 상태이며 검색에 노출되지
+            않습니다.
+          </span>
+          {preview && (
+            <Link
+              href="/api/preview/exit"
+              prefetch={false}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-accent-amber/40 px-2.5 py-1 font-medium transition-colors hover:bg-accent-amber/15"
+            >
+              <EyeOff className="size-3.5" strokeWidth={2.2} />
+              미리보기 종료
+            </Link>
+          )}
         </div>
       )}
 
