@@ -91,7 +91,7 @@ function CommentForm({ bookId, slug }: { bookId: string; slug: string }) {
         className="min-h-24"
         required
       />
-      {err && <p className="text-xs text-rose-300">{err}</p>}
+      {err && <p role="alert" className="text-xs text-rose-300">{err}</p>}
       <div className="flex justify-end">
         <Button type="submit" size="sm" loading={pending} disabled={pending || !value.trim()}>
           댓글 등록

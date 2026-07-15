@@ -172,10 +172,10 @@ function NicknameCard({
             aria-invalid={!!clientError}
           />
           {(clientError || (!state.ok && serverError)) && (
-            <p className="mt-1.5 text-xs text-rose-300">{clientError ?? serverError}</p>
+            <p role="alert" className="mt-1.5 text-xs text-rose-300">{clientError ?? serverError}</p>
           )}
           {state.ok && !clientError && unchanged && (
-            <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-accent-emerald">
+            <p role="status" className="mt-1.5 inline-flex items-center gap-1 text-xs text-accent-emerald">
               <CheckCircle2 className="size-3.5" />
               저장되었습니다.
             </p>
@@ -258,9 +258,9 @@ function PasswordCard({ hasPassword }: { hasPassword: boolean }) {
           />
         </div>
 
-        {error && <p className="text-xs text-rose-300">{error}</p>}
+        {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
         {done && (
-          <p className="inline-flex items-center gap-1 text-xs text-accent-emerald">
+          <p role="status" className="inline-flex items-center gap-1 text-xs text-accent-emerald">
             <CheckCircle2 className="size-3.5" />
             비밀번호가 변경되었습니다.
           </p>

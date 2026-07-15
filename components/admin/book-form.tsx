@@ -98,12 +98,12 @@ export function BookForm({ book, topics }: { book?: BookFormValues; topics: Topi
       </div>
 
       {state.ok && isEdit && (
-        <p className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-300">
+        <p role="status" className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3.5 py-2.5 text-sm text-emerald-300">
           저장되었습니다.
         </p>
       )}
       {state.error && (
-        <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+        <p role="alert" className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
           {errorText(state.error)}
         </p>
       )}

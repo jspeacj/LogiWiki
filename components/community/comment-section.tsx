@@ -61,7 +61,7 @@ export function CommentSection({
             placeholder="따뜻한 댓글을 남겨주세요."
           />
           {state.error && (
-            <p className="mt-3 text-sm text-rose-300">
+            <p role="alert" className="mt-3 text-sm text-rose-300">
               {errorText(state.error, ERR)}
             </p>
           )}
@@ -197,7 +197,7 @@ function CommentRow({
             defaultValue={content}
           />
           {editError && (
-            <p className="text-xs text-rose-300">
+            <p role="alert" className="text-xs text-rose-300">
               저장에 실패했습니다. 다시 시도해 주세요.
             </p>
           )}

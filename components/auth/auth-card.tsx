@@ -66,7 +66,11 @@ export function AuthCard({
 /** 폼 필드 에러 텍스트. */
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="mt-1.5 text-xs text-rose-300">{message}</p>;
+  return (
+    <p role="alert" className="mt-1.5 text-xs text-rose-300">
+      {message}
+    </p>
+  );
 }
 
 /** "또는" 구분선. */

@@ -49,7 +49,7 @@ export function UpdatePasswordForm() {
           <span className="grid size-14 place-items-center rounded-2xl bg-accent-emerald/12 text-accent-emerald">
             <ShieldCheck className="size-7" />
           </span>
-          <p className="text-sm leading-relaxed text-muted-strong">
+          <p role="status" className="text-sm leading-relaxed text-muted-strong">
             새 비밀번호로 변경되었습니다. 이제 로그인할 수 있습니다.
           </p>
           <Button onClick={() => router.push("/login")}>로그인</Button>
@@ -87,7 +87,7 @@ export function UpdatePasswordForm() {
         </div>
 
         {errors.form && (
-          <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+          <p role="alert" className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
             {errors.form}
           </p>
         )}

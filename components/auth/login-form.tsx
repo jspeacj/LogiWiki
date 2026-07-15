@@ -82,7 +82,7 @@ export function LoginForm() {
         </div>
 
         {errors.form && (
-          <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+          <p role="alert" className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
             {errors.form}
           </p>
         )}

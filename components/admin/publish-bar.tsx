@@ -69,7 +69,7 @@ export function PublishBar({
               ? "검색에 노출되지 않습니다. 검수 후 발행하세요."
               : "챕터를 1개 이상 추가해야 발행할 수 있습니다."}
         </span>
-        {error && <span className="text-xs text-rose-300">{error}</span>}
+        {error && <span role="alert" className="text-xs text-rose-300">{error}</span>}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">

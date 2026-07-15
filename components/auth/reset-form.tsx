@@ -42,7 +42,7 @@ export function ResetForm() {
           <span className="grid size-14 place-items-center rounded-2xl bg-accent-cyan/12 text-accent-cyan">
             <MailCheck className="size-7" />
           </span>
-          <p className="text-sm leading-relaxed text-muted-strong">
+          <p role="status" className="text-sm leading-relaxed text-muted-strong">
             해당 이메일로 가입된 계정이 있다면 비밀번호 재설정 링크를 보냈습니다. 메일함을 확인하세요.
           </p>
           <Link

@@ -93,7 +93,7 @@ export function SignupForm() {
           <span className="grid size-14 place-items-center rounded-2xl bg-accent-emerald/12 text-accent-emerald">
             <MailCheck className="size-7" />
           </span>
-          <p className="text-sm leading-relaxed text-muted-strong">
+          <p role="status" className="text-sm leading-relaxed text-muted-strong">
             입력하신 이메일로 인증 링크를 보냈습니다. 메일의 링크를 눌러 가입을 완료하세요.
           </p>
           <Link
@@ -167,7 +167,7 @@ export function SignupForm() {
         </div>
 
         {errors.form && (
-          <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+          <p role="alert" className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
             {errors.form}
           </p>
         )}

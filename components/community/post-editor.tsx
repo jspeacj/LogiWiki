@@ -104,7 +104,7 @@ export function PostEditor({ initial }: { initial?: EditTarget }) {
       </div>
 
       {state.error && (
-        <p className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+        <p role="alert" className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
           {errorText(state.error, ERR)}
         </p>
       )}
