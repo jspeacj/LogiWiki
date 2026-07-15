@@ -1,0 +1,62 @@
+name: keepalive (스케줄 워크플로 자동 비활성 방지)
+
+# 왜 필요한가:
+#   GitHub 은 public repo 에서 "저장소에 60일간 커밋 활동이 없으면"
+#   schedule(cron) 트리거를 자동으로 **비활성화**한다(알림 없음).
+#   이 repo 의 daily-book / daily-quiz 는 결과를 git 이 아니라 Supabase 로만 쓰므로
+#   cron 실행이 아무리 돌아도 "저장소 활동"으로 집계되지 않는다.
+#   → 마지막 사람 커밋으로부터 60일이 지나면 매일 돌던 생성기가 조용히 멈춘다.
+#
+# 이 워크플로가 하는 일:
+#   주 1회 점검해서, 마지막 커밋 후 임계치(50일)를 넘겼을 때만 빈 커밋 1개를 push 한다.
+#   그 커밋이 60일 타이머를 리셋해 daily-book / daily-quiz 가 계속 살아 있게 한다.
+#   평소(임계치 미만)엔 아무 것도 커밋하지 않아 히스토리를 더럽히지 않는다.
+#
+# 안전 여백: 주 1회(최대 7일 간격) × 임계치 50일 → 최악의 경우 57일에 커밋.
+#   60일 마감까지 3일 여유가 남는다.
+#
+# 트리거 규칙(AGENTS.md): public repo 이므로 schedule + workflow_dispatch 만 쓴다.
+#   pull_request_target / issue_comment / workflow_run 은 절대 추가하지 않는다.
+
+on:
+  schedule:
+    # UTC 03:00 매주 월요일. daily-book(21:00)·daily-quiz(22:00) 와 시간대가 겹치지 않는다.
+    - cron: "0 3 * * 1"
+  workflow_dispatch: # 수동 점검/강제 실행용
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      # 빈 커밋 push 에 필요. keepalive 의 유일한 권한이다.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git log 로 마지막 커밋 시각을 읽어야 하므로 얕은 클론이면 안 된다.
+          fetch-depth: 0
+
+      - name: 마지막 커밋 후 임계치를 넘겼으면 빈 커밋으로 활동 갱신
+        env:
+          # 며칠이 지나면 커밋할지. 60일 마감 이전이어야 한다(주 1회 실행 여백 고려).
+          THRESHOLD_DAYS: "50"
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          days=$(( (now - last) / 86400 ))
+          echo "마지막 커밋 이후 ${days}일 경과 (임계치 ${THRESHOLD_DAYS}일)"
+
+          if [ "$days" -lt "$THRESHOLD_DAYS" ]; then
+            echo "아직 임계치 미만 — 커밋하지 않는다."
+            exit 0
+          fi
+
+          echo "임계치 도달 — 빈 커밋으로 저장소 활동을 갱신한다."
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore(keepalive): 스케줄 워크플로 자동 비활성 방지용 빈 커밋"
+          git push
