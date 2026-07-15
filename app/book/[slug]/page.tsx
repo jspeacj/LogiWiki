@@ -1,20 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { after } from "next/server";
 import { draftMode } from "next/headers";
 import { BookOpen, CalendarDays, Eye, EyeOff, ThumbsUp, User } from "lucide-react";
-import { getBookBySlug, recordBookView } from "@/lib/wiki/queries";
-import { getBookComments, getBookInteractionState } from "@/lib/wiki/social";
+import { getBookBySlug } from "@/lib/wiki/queries";
+import { getBookComments } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
-import { RecommendButton } from "@/components/wiki/recommend-button";
-import { BookmarkButton } from "@/components/wiki/bookmark-button";
+import { BookInteractions } from "@/components/wiki/book-interactions";
 import { BookComments } from "@/components/wiki/book-comments";
 import { AdminEditLink } from "@/components/wiki/admin-edit-link";
+import { RecordView } from "@/components/wiki/record-view";
 
-export const dynamic = "force-dynamic";
+/**
+ * 랜딩도 ISR.
+ *
+ * 세션 의존 데이터(내 추천·즐겨찾기 상태)만 클라이언트로 옮기면(BookInteractions), 나머지
+ * (서적 메타·목차·공개 댓글)는 캐시 가능하다. 조회수는 클라이언트에서 집계(RecordView),
+ * 초안 미리보기는 draftMode 로 격리(챕터와 동일). 댓글·발행 변경은 revalidatePath 로 즉시 갱신.
+ */
+export const revalidate = 3600;
+
+export function generateStaticParams(): Array<{ slug: string }> {
+  return [];
+}
 
 type Params = { slug: string };
 
@@ -56,19 +66,15 @@ export default async function BookLandingPage({
   const firstChapter = flattenChapters(book.chapters)[0];
   const isPublished = book.status === "published";
 
-  // 랜딩은 동적이라 서버 after() 로 조회를 집계한다(챕터는 ISR 이라 클라이언트에서 집계).
-  // 발행본이면서 미리보기가 아닐 때만 — 저자/관리자의 초안 미리보기가 랭킹에 섞이지 않도록.
-  if (isPublished && !preview) after(() => recordBookView(book.id));
-
-  // 추천/댓글/즐겨찾기는 발행된 서적에서만(RLS 도 동일 강제).
-  // 상호작용 상태(추천·즐겨찾기)는 한 번의 세션 확인으로 함께 읽는다.
-  const [comments, interaction] = isPublished
-    ? await Promise.all([getBookComments(book.id), getBookInteractionState(book.id)])
-    : [[], { recommended: false, bookmarked: false }];
+  // 댓글은 공개 데이터라 서버에서 캐시 가능하게 읽는다(발행본만). 상호작용 상태(추천·즐겨찾기)는
+  // per-user 라 BookInteractions 가 클라이언트에서 채운다. 조회수도 클라이언트(RecordView)에서 집계.
+  const comments = isPublished ? await getBookComments(book.id) : [];
 
   return (
     <div className="mx-auto max-w-5xl px-5 py-10">
       {isPublished && <BookJsonLd book={book} />}
+      {/* 조회수는 클라이언트에서 집계(ISR 캐시 히트에도 기록). 미리보기(draft)는 제외. */}
+      {isPublished && !preview && <RecordView bookId={book.id} />}
 
       {/* 미발행 미리보기 배너(draftMode 로 진입한 저자/관리자에게만 보임). */}
       {!isPublished && (
@@ -147,18 +153,10 @@ export default async function BookLandingPage({
             </Link>
           )}
           {isPublished && (
-            <RecommendButton
+            <BookInteractions
               bookId={book.id}
               slug={book.slug}
               initialCount={book.recommend_count}
-              initialRecommended={interaction.recommended}
-            />
-          )}
-          {isPublished && (
-            <BookmarkButton
-              bookId={book.id}
-              slug={book.slug}
-              initialBookmarked={interaction.bookmarked}
             />
           )}
           {/* 관리자에게만 보임 — 발행 후에도 여기서 바로 편집기로 넘어간다. */}

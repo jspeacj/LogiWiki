@@ -1,14 +1,17 @@
 import "server-only";
-import { getReadClient } from "@/lib/supabase/read";
+import { getPublicClient, getReadClient } from "@/lib/supabase/read";
 import { mapCommentRow, type RawCommentRow } from "@/lib/supabase/embed";
 import type { CommentItem } from "@/lib/community/types";
 
 /** 서적 댓글 아이템(구조는 커뮤니티 댓글과 동일). */
 export type BookCommentItem = CommentItem;
 
-/** 서적 댓글(오래된 순). 비회원도 열람 가능. */
+/**
+ * 서적 댓글(오래된 순). 비회원도 열람 가능한 공개 데이터라 쿠키 없는 클라이언트로 읽는다
+ * → 랜딩 페이지가 ISR 로 캐시될 수 있다(댓글 작성/수정/삭제 시 revalidatePath 로 갱신).
+ */
 export async function getBookComments(bookId: string): Promise<BookCommentItem[]> {
-  const supabase = await getReadClient();
+  const supabase = getPublicClient();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("book_comments")

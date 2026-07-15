@@ -3,10 +3,25 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireUser, isRateLimited, type ActionState } from "@/lib/auth/actions";
+import { getBookInteractionState } from "@/lib/wiki/social";
 
 export type { ActionState };
 export type RecommendState = ActionState & { recommended?: boolean; count?: number };
 export type BookmarkState = ActionState & { bookmarked?: boolean };
+
+/**
+ * 현재 사용자의 이 서적 상호작용 상태(추천·즐겨찾기).
+ * 랜딩 페이지가 ISR 캐시라 per-user 상태를 HTML 에 담을 수 없으므로, 클라이언트
+ * (BookInteractions)가 마운트 시 이걸 호출해 버튼 상태를 채운다. 비로그인이면 둘 다 false.
+ */
+export async function getMyBookInteraction(
+  bookId: string,
+): Promise<{ recommended: boolean; bookmarked: boolean }> {
+  if (!z.string().uuid().safeParse(bookId).success) {
+    return { recommended: false, bookmarked: false };
+  }
+  return getBookInteractionState(bookId);
+}
 
 /**
  * 서적 추천 토글(1인 1서적 1회).
