@@ -12,6 +12,7 @@ import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { Mermaid } from "@/components/wiki/mermaid";
 import { CodeCopy } from "@/components/wiki/code-copy";
 import { PageToc } from "@/components/wiki/page-toc";
+import { AdminEditLink } from "@/components/wiki/admin-edit-link";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +106,9 @@ export default async function ChapterPage({
               <ChevronLeft className="size-4" />
               {book.title}
             </Link>
+
+            {/* 관리자에게만 보임 — 읽던 챕터에서 곧장 편집기로. */}
+            <AdminEditLink bookId={book.id} className="mb-3 flex h-9 w-fit items-center gap-1.5 rounded-full border border-brand/30 bg-brand/10 px-4 text-sm font-medium text-brand transition-colors hover:border-brand/50 hover:bg-brand/15" />
 
             {/* 모바일: 접힌 목차 */}
             <details className="rounded-2xl border border-white/10 bg-white/[0.02] lg:hidden">

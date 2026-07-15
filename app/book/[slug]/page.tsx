@@ -10,6 +10,7 @@ import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { RecommendButton } from "@/components/wiki/recommend-button";
 import { BookComments } from "@/components/wiki/book-comments";
+import { AdminEditLink } from "@/components/wiki/admin-edit-link";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,8 @@ export default async function BookLandingPage({
               initialRecommended={recommended}
             />
           )}
+          {/* 관리자에게만 보임 — 발행 후에도 여기서 바로 편집기로 넘어간다. */}
+          <AdminEditLink bookId={book.id} />
         </div>
       </header>
 
