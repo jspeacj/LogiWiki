@@ -45,10 +45,25 @@ export function consume(key: string, limit: number, windowMs: number): boolean {
   return true;
 }
 
-/** 프록시 뒤(Vercel)에서의 클라이언트 IP. 없으면 "unknown" 으로 합쳐서 제한. */
+/**
+ * 프록시 뒤(Vercel)에서의 클라이언트 IP. 없으면 "unknown" 으로 합쳐서 제한.
+ *
+ * ⚠️ `x-forwarded-for` 의 **첫** 항목을 믿으면 안 된다. 이 헤더는 프록시가 뒤에 덧붙이는
+ * 구조라 클라이언트가 미리 채워 보낸 값이 앞에 남는다. 즉 `X-Forwarded-For: 1.2.3.4` 를
+ * 매 요청 다르게 보내면 IP 별 레이트리밋이 통째로 우회된다(유료 채점 리미터 포함).
+ *
+ * Vercel 이 직접 세팅해 신뢰할 수 있는 `x-real-ip` 를 먼저 보고, 없을 때만 XFF 의
+ * **마지막** 항목(=가장 바깥 프록시가 관찰한 실제 peer)으로 폴백한다.
+ */
 export async function clientIp(): Promise<string> {
   const h = await headers();
+  const real = h.get("x-real-ip");
+  if (real) return real.trim();
+
   const forwarded = h.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim();
-  return h.get("x-real-ip") ?? "unknown";
+  if (forwarded) {
+    const hops = forwarded.split(",").map((s) => s.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1]!;
+  }
+  return "unknown";
 }

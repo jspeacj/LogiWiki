@@ -1,5 +1,6 @@
 import "server-only";
 import { getPublicClient, getReadClient } from "@/lib/supabase/read";
+import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
 import { normalizeAuthor } from "@/lib/supabase/embed";
 import { escapeLikeValue } from "@/lib/supabase/filter";
 
@@ -296,16 +297,25 @@ export async function getPublishedSitemapUrls(): Promise<
 }
 
 /**
- * 조회수 기록(RPC). 렌더 경로 밖에서 after() 로 fire-and-forget 호출.
+ * 조회수 기록(RPC).
  *
- * ⚠️ 쿠키 기반 클라이언트(getClient)를 쓰지 않는다. after() 콜백은 응답이 나간 뒤에
- * 실행되는데, 그 시점에 `cookies()` 접근이 실패하면 예외가 조용히 삼켜져 조회수가
- * 영영 오르지 않는다(실제로 그렇게 깨져 있었다). record_book_view 는 security definer
- * 공개 RPC 라 세션이 필요 없으므로, 쿠키 없는 순수 anon 클라이언트로 호출한다.
+ * ⚠️ 쿠키 기반 클라이언트(getReadClient)를 쓰지 않는다. 조회 기록은 요청 컨텍스트를
+ * 벗어난 곳에서도 불릴 수 있는데, 그 시점에 `cookies()` 접근이 실패하면 예외가 조용히
+ * 삼켜져 조회수가 영영 오르지 않는다(실제로 그렇게 깨져 있었다).
+ *
+ * 0015 부터 **service-role** 로 부른다. record_book_view 는 원래 anon 에게 열린 공개
+ * RPC 였는데, 익명 키가 클라이언트 번들에 있으므로 누구나 PostgREST 로 직접 호출해
+ * 랭킹을 조작할 수 있었다(0008/0009 가 막은 직접 UPDATE 의 우회로). 이제 RPC 는
+ * service-role 전용이고, 뷰어 식별자는 **서버에서** 계산해 넘긴다 — 클라이언트가 해시를
+ * 고를 수 있으면 값을 무작위로 바꿔가며 중복 제거를 우회하므로 둘은 한 쌍이다.
+ *
+ * service-role env 가 없으면(로컬) 조용히 no-op — 조회수는 앱 동작에 필수가 아니다.
  */
-export async function recordBookView(bookId: string): Promise<void> {
-  const supabase = getPublicClient();
-  if (!supabase) return;
-  const { error } = await supabase.rpc("record_book_view", { p_book_id: bookId });
+export async function recordBookView(bookId: string, viewerHash: string): Promise<void> {
+  if (!hasAdminEnv()) return;
+  const { error } = await createAdminClient().rpc("record_book_view", {
+    p_book_id: bookId,
+    p_viewer_hash: viewerHash,
+  });
   logQueryError("recordBookView", error);
 }
