@@ -21,7 +21,7 @@ export async function generateMetadata({
   }
   return {
     title: `${meta.label} 퀴즈`,
-    description: `${meta.label} 랜덤 코딩 퀴즈를 풀고 AI 채점·해설을 받아보세요.`,
+    description: `${meta.label} 랜덤 코딩 퀴즈를 풀고 바로 정답과 해설을 확인해 보세요.`,
     alternates: { canonical: canonical(`quiz/${topic}`) },
     robots: { index: false, follow: false },
   };

@@ -307,7 +307,9 @@ function ChapterJsonLd({
     about: book.topic_label,
     url,
     isPartOf: { "@type": "Course", name: book.title, url: bookUrl },
-    ...(book.author ? { author: { "@type": "Person", name: book.author.nickname } } : {}),
+    // 저자=조직 / 사람=편집자. 이유는 app/book/[slug]/page.tsx 의 같은 블록 주석 참고.
+    author: { "@type": "Organization", name: "LogiWiki", url: siteConfig.url },
+    editor: { "@type": "Person", name: EDITOR_NAME },
     ...(book.published_at ? { datePublished: book.published_at } : {}),
     dateModified: chapter.updated_at,
     publisher: { "@type": "Organization", name: "LogiWiki", url: siteConfig.url },

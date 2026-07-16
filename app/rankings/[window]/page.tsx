@@ -61,7 +61,11 @@ export async function generateMetadata({
     // 필터(topic/sort)는 쿼리 파라미터이므로 canonical 은 기본 랭킹 페이지로 고정한다
     // (필터 조합마다 별도 URL 이 색인되는 중복 콘텐츠 방지).
     alternates: { canonical: canonical(`rankings/${window}`) },
-    robots: NOINDEX ? { index: false, follow: false } : undefined,
+    // 랭킹은 **의도적으로 색인하지 않는다**(follow 는 유지 — 링크는 타고 가도 된다).
+    // 고유 콘텐츠가 없고 다른 곳에 이미 있는 서적으로의 링크 목록일 뿐인데, window 3종이
+    // 카탈로그가 작을 때 사실상 동일한 목록을 렌더한다 → 얇은 중복 페이지 3개.
+    // 서적 자체는 sitemap 에 있으므로 색인성에 손해도 없다. 탐색 UI 로만 쓴다.
+    robots: { index: false, follow: !NOINDEX },
   };
 }
 

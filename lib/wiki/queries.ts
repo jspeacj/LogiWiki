@@ -128,6 +128,28 @@ export async function listBooks(
 }
 
 /**
+ * 토픽의 발행 서적 수(행은 안 가져오고 count 만). 요청 단위 캐시 —
+ * generateMetadata 와 페이지 본문이 각각 불러도 쿼리는 1회.
+ *
+ * 용도: 발행 서적이 0권인 토픽 페이지를 noindex 처리한다. 토픽 행은 AI 가 새 분야를
+ * 다루면 생기는데 서적은 검수 후에야 발행되므로, "토픽은 있는데 보여줄 서적이 없는"
+ * 상태가 정상적으로 존재한다. 그 페이지가 색인되면 빈 페이지가 색인되는 셈이다.
+ */
+export const countPublishedBooksByTopic = cache(async function countPublishedBooksByTopic(
+  topic: string,
+): Promise<number> {
+  const supabase = getPublicClient();
+  if (!supabase) return 0;
+  const { count, error } = await supabase
+    .from("books")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "published")
+    .eq("topic", topic);
+  logQueryError("countPublishedBooksByTopic", error);
+  return error ? 0 : (count ?? 0);
+});
+
+/**
  * 현재 로그인 사용자가 즐겨찾기한 **발행된** 서적 목록(최근 추가순).
  * 비로그인/미설정이면 빈 배열. RLS(book_bookmarks_select_own)로 본인 것만 읽힌다.
  *
@@ -263,28 +285,51 @@ export const getChapter = cache(async function getChapter(
   return data as ChapterDetail;
 });
 
+export interface SitemapEntry {
+  path: string;
+  lastmod: string;
+}
+
+export interface SitemapData {
+  /** 발행 서적의 랜딩 + 챕터 경로. */
+  urls: SitemapEntry[];
+  /** **발행 서적이 1권 이상 있는** 토픽만. lastmod = 그 토픽에서 가장 최근에 갱신된 서적. */
+  topics: SitemapEntry[];
+}
+
 /**
- * sitemap 용: 발행 서적의 랜딩 + 챕터 경로(+lastmod). NOINDEX 면 sitemap.ts 가 애초에 호출 안 함.
+ * sitemap 용 데이터. NOINDEX 면 sitemap.ts 가 애초에 호출 안 함.
  * 발행·검증된 것만 색인한다는 규칙의 렌더측 절반(DB측은 RLS).
  *
  * 발행 데이터만 읽으므로 세션이 필요 없다 → 쿠키 없는 anon 클라이언트로 읽어 sitemap 라우트가
  * dynamic 으로 떨어지지 않게 한다(cookies() 접근이 정적화를 막는 것을 회피).
+ *
+ * 토픽을 여기서 같이 뽑는 이유 — 예전엔 sitemap.ts 가 `getTopics()`(=topics 테이블 전체)로
+ * 토픽 URL 을 만들었다. 그런데 서적은 항상 draft 로 들어와 사람이 승인해야 발행되므로,
+ * **발행된 서적이 하나도 없는 토픽 행이 정상적으로 존재한다**(AI 가 새 토픽을 만든 직후,
+ * 혹은 그 초안이 반려된 경우 영구히). 그런 URL 을 sitemap 에 넣으면 "아직 발행된 서적이
+ * 없습니다" 만 있는 빈 페이지를 구글에 제출하는 꼴 — 심사에서 thin content 신호가 된다.
+ * 발행 서적에서 토픽을 역산하면 빈 토픽이 구조적으로 들어올 수 없다.
  */
-export async function getPublishedSitemapUrls(): Promise<
-  Array<{ path: string; lastmod: string }>
-> {
+export async function getSitemapData(): Promise<SitemapData> {
   const supabase = getPublicClient();
-  if (!supabase) return [];
+  if (!supabase) return { urls: [], topics: [] };
   const { data, error } = await supabase
     .from("books")
-    .select("slug, updated_at, chapters(slug, updated_at)")
+    .select("slug, topic, updated_at, chapters(slug, updated_at)")
     .eq("status", "published")
     .not("published_at", "is", null);
-  if (error || !data) return [];
+  if (error || !data) {
+    logQueryError("getSitemapData", error);
+    return { urls: [], topics: [] };
+  }
 
-  const urls: Array<{ path: string; lastmod: string }> = [];
+  const urls: SitemapEntry[] = [];
+  const topicLastmod = new Map<string, string>();
+
   for (const row of data as Array<{
     slug: string;
+    topic: string;
     updated_at: string;
     chapters: Array<{ slug: string; updated_at: string }> | null;
   }>) {
@@ -292,8 +337,16 @@ export async function getPublishedSitemapUrls(): Promise<
     for (const ch of row.chapters ?? []) {
       urls.push({ path: `book/${row.slug}/${ch.slug}`, lastmod: ch.updated_at });
     }
+    const prev = topicLastmod.get(row.topic);
+    if (!prev || row.updated_at > prev) topicLastmod.set(row.topic, row.updated_at);
   }
-  return urls;
+
+  const topics: SitemapEntry[] = [...topicLastmod].map(([slug, lastmod]) => ({
+    path: `topic/${slug}`,
+    lastmod,
+  }));
+
+  return { urls, topics };
 }
 
 /**

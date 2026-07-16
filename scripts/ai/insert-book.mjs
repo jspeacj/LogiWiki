@@ -56,6 +56,15 @@ const MIN_BODY_CHARS = 1200;
 const BOILERPLATE_HEADINGS = ["학습 목표", "요약", "연습", "흔한 함정", "마치며", "정리"];
 const BOILERPLATE_RATIO = 0.7;
 
+/**
+ * 소제목 하나하나로는 기준을 넘지 않지만 **합치면** 템플릿인 경우를 잡는다.
+ *
+ * 위 BOILERPLATE_RATIO 검사는 소제목별로 **독립적으로** 돈다. 그래서 "학습 목표" 69%,
+ * "요약" 69%, "연습" 69% 인 원고는 세 검사를 모두 통과한다 — 사실상 모든 챕터가
+ * 같은 틀인데도. 챕터당 평균 상투 소제목 개수로 그 구멍을 막는다.
+ */
+const BOILERPLATE_PER_CHAPTER_MAX = 1.5;
+
 /** AI 가 쓴 티가 나는 상투어. 본문에서 발견되면 경고한다(거부는 아님). */
 const AI_TELL_PHRASES = [
   "깊이 있게 알아보",
@@ -189,9 +198,12 @@ const diagrams = chapters.reduce(
 // 모든 챕터가 "학습 목표 → 본문 → 요약 → 연습" 으로 똑같이 생겼다면 그건 템플릿을
 // 채운 것이지 쓴 게 아니다. 검색엔진의 대규모 콘텐츠 남용 판정에 직결된다.
 if (chapters.length >= 4) {
+  let totalBoilerplateHits = 0;
+
   for (const heading of BOILERPLATE_HEADINGS) {
     const re = new RegExp(`^#{2,3}\\s*${heading}`, "m");
     const hits = chapters.filter((c) => re.test(c.body)).length;
+    totalBoilerplateHits += hits;
     const ratio = hits / chapters.length;
     if (ratio >= BOILERPLATE_RATIO) {
       fail(
@@ -200,6 +212,16 @@ if (chapters.length >= 4) {
           `각 챕터에 실제로 필요한 절만 두세요.`,
       );
     }
+  }
+
+  // 개별로는 다 통과하지만 합치면 템플릿인 경우(69% × 3종 …).
+  const perChapter = totalBoilerplateHits / chapters.length;
+  if (perChapter >= BOILERPLATE_PER_CHAPTER_MAX) {
+    fail(
+      `챕터당 상투적 소제목이 평균 ${perChapter.toFixed(1)}개입니다 ` +
+        `(총 ${totalBoilerplateHits}개 / 챕터 ${chapters.length}개). 소제목별로는 기준을 넘지 ` +
+        `않았더라도 합쳐 보면 모든 챕터가 같은 틀입니다 — 주제가 요구하는 절만 쓰세요.`,
+    );
   }
 }
 
@@ -224,6 +246,37 @@ const supabase = createClient(url, key, { auth: { persistSession: false } });
 const { data: userList } = await supabase.auth.admin.listUsers();
 const admin = userList?.users?.find((u) => u.email?.toLowerCase() === adminEmail);
 if (!admin) fail(`관리자 계정(${adminEmail})을 찾을 수 없습니다. 앱에서 먼저 가입하세요.`);
+
+// ── 3.5) 중복 서적 검사 ──────────────────────────────────────────────────────
+//
+// resolveSlug 는 slug 가 충돌하면 조용히 `-2` 를 붙이고 진행한다. 그래서 같은 주제를
+// 두 번 쓰면 `react-hooks` 와 `react-hooks-2` 라는 거의 같은 내용의 서적 두 권이 만들어져
+// 둘 다 검수 대기열에 들어가고, 승인되면 둘 다 sitemap 에 올라간다 — 중복 콘텐츠다.
+// (퀴즈 파이프라인은 중복을 거르는데 서적은 안 걸렀다.)
+//
+// 제목을 정규화해 비교한다. 완전 일치면 거부 — 사람이 의도적으로 개정판을 쓰는 경우라면
+// 제목을 바꾸거나 관리자 화면에서 직접 만들면 된다.
+function normalizeTitle(s) {
+  return s
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]/gu, "") // 공백·구두점·기호 제거
+    .trim();
+}
+
+const { data: existingBooks, error: titleErr } = await supabase
+  .from("books")
+  .select("title, slug, status")
+  .eq("topic", outline.topic_slug);
+if (titleErr) fail(`기존 서적 조회 실패: ${titleErr.message}`);
+
+const incoming = normalizeTitle(outline.title);
+const dupe = (existingBooks ?? []).find((b) => normalizeTitle(b.title) === incoming);
+if (dupe) {
+  fail(
+    `같은 제목의 서적이 이미 있습니다: "${dupe.title}" (${dupe.slug}, ${dupe.status}). ` +
+      `중복 서적을 만들지 않습니다 — 기존 서적을 보강하거나 다른 주제를 다루세요.`,
+  );
+}
 
 // ── 4) 토픽 — 없으면 생성 ────────────────────────────────────────────────────
 const { data: existingTopic } = await supabase

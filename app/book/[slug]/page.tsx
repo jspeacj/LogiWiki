@@ -7,6 +7,7 @@ import { getBookBySlug } from "@/lib/wiki/queries";
 import { getBookComments } from "@/lib/wiki/social";
 import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
+import { EDITOR_NAME } from "@/lib/editorial";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { BookInteractions } from "@/components/wiki/book-interactions";
 import { BookComments } from "@/components/wiki/book-comments";
@@ -192,7 +193,13 @@ function BookJsonLd({ book }: { book: Awaited<ReturnType<typeof getBookBySlug>> 
       name: "LogiWiki",
       url: siteConfig.url,
     },
-    ...(book.author ? { author: { "@type": "Person", name: book.author.nickname } } : {}),
+    // 저자는 **조직**, 사람은 **편집자(editor)** 로 표기한다.
+    // 예전엔 `author: Person(book.author.nickname)` 이었는데, 이건 기계가 읽는
+    // 저작자 주장이다. 초안 작성에 도구를 쓰는 이상 특정 개인이 집필했다는 주장은
+    // 사실이 아니다(AGENTS.md: "사람이 직접 집필했다"는 거짓 주장은 하지 않는다).
+    // 본문 표기("검수 ...")와 구조화 데이터가 같은 말을 하게 맞춘 것이기도 하다.
+    author: { "@type": "Organization", name: "LogiWiki", url: siteConfig.url },
+    editor: { "@type": "Person", name: EDITOR_NAME },
     ...(book.published_at ? { datePublished: book.published_at } : {}),
     dateModified: book.updated_at,
   };
