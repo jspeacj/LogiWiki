@@ -201,7 +201,13 @@ export default async function ChapterPage({
             전형적 실루엣이다.
           */}
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-white/10 pb-6 text-xs text-muted">
-            {book.author?.nickname && (
+            {/*
+              저자 닉네임과 편집자명이 같으면 이름을 한 번만 보여준다.
+              DB 의 profiles.nickname 을 EDITOR_NAME 과 동기화한 뒤로 둘이 같은 값이라,
+              그대로 두면 "김보성 · 검수 김보성" 이 된다. 다른 사람이 쓴 서적(사용자 저작)
+              이면 여전히 "홍길동 · 검수 김보성" 으로 둘 다 나온다.
+            */}
+            {book.author?.nickname && book.author.nickname !== EDITOR_NAME && (
               <span className="inline-flex items-center gap-1">
                 <User className="size-3.5" strokeWidth={2} />
                 {book.author.nickname}
