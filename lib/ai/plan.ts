@@ -1,6 +1,8 @@
 import "server-only";
+import { revalidateTag } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { claude, MODEL_DRAFT } from "./claude";
+import { TOPICS_CACHE_TAG } from "@/lib/wiki/topics-db";
 
 /**
  * 매일 생성할 서적 주제를 Claude 에게 제안받고, 필요하면 토픽을 새로 만든 뒤 job 을 큐에 넣는다.
@@ -180,6 +182,13 @@ export async function planDailyBooks(
     }
     queued += 1;
   }
+
+  // 토픽 목록은 5분 TTL 로 캐시된다(lib/wiki/topics-db.ts). 새로 만들었으면 즉시 무효화해
+  // 다음 요청부터 보이게 한다. GitHub Actions 경로(scripts/ai/*.mjs)는 Next 런타임 밖이라
+  // 이 호출을 못 하지만, 거기서 만든 토픽도 TTL 로 5분 안에 자연히 드러난다.
+  // Next 16: revalidateTag 는 2인자다. "max" = stale-while-revalidate(권장) —
+  // 1인자 형태는 즉시 만료라 다음 요청이 블로킹 미스가 되고, 이제 deprecated 다.
+  if (newTopics.length > 0) revalidateTag(TOPICS_CACHE_TAG, "max");
 
   return { queued, newTopics };
 }

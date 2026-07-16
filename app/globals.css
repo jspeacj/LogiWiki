@@ -455,3 +455,41 @@ body {
   max-width: none;
   height: auto;
 }
+
+/* ───────────────────────── 챕터 읽기 진행 표시 ─────────────────────────
+   긴 기술 문서에서 "얼마나 남았나"를 보여주는 얇은 막대. 헤더(h-16=4rem) 바로 아래에
+   붙어 스크롤에 따라 좌→우로 찬다.
+
+   JS 를 쓰지 않는다 — 스크롤 이벤트 리스너를 달려면 이 페이지에 클라이언트 컴포넌트를
+   하나 더 심어야 하는데, 챕터 페이지는 ISR 로 캐시되는 최대 검색 유입 표면이라
+   번들을 늘리고 싶지 않다. 스크롤 기반 CSS 애니메이션(animation-timeline)이면 비용 0.
+
+   미지원 브라우저(현재 일부 구형)에서는 animation-timeline 이 무시되고 scaleX(0) 이
+   그대로 남아 **보이지 않는다** — 즉 조용히 사라질 뿐 깨지지 않는다.
+   prefers-reduced-motion 에서도 숨긴다(스크롤에 반응해 계속 움직이는 요소다). */
+.reading-progress {
+  position: fixed;
+  top: 4rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 30; /* 헤더(z-40) 아래 — 헤더의 모바일 메뉴를 가리지 않는다 */
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  animation: reading-progress-grow linear;
+  animation-timeline: scroll(root block);
+  pointer-events: none;
+}
+
+@keyframes reading-progress-grow {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reading-progress {
+    display: none;
+  }
+}
