@@ -16,4 +16,4 @@ export const EDITOR_NAME = "김보성";
 export const CONTACT_EMAIL = "jspeacj@gmail.com";
 
 /** 개인정보처리방침 최종 개정일 (개정 시 함께 갱신). */
-export const PRIVACY_UPDATED_AT = "2026-07-15";
+export const PRIVACY_UPDATED_AT = "2026-07-16";

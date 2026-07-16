@@ -1,5 +1,6 @@
 import "server-only";
-import { getReadClient } from "@/lib/supabase/read";
+import { unstable_cache } from "next/cache";
+import { getPublicClient, getReadClient } from "@/lib/supabase/read";
 import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
 
 export type QuizType = "mcq" | "short" | "fill_code";
@@ -22,6 +23,47 @@ export interface QuizCanonical extends QuizPublic {
   explanation: string;
 }
 
+
+/** 5분. 퀴즈는 하루 1회(daily-quiz.yml) 승인 시에만 늘어난다. */
+const QUIZ_COUNT_TTL_SECONDS = 300;
+
+/**
+ * 토픽별 발행 퀴즈 수.
+ *
+ * 왜 필요한가 — /quiz 는 **모든** 토픽 타일을 깔아놨는데, 퀴즈는 하루 3토픽 × 2문항씩만
+ * 늘어난다(daily-quiz.yml). 그래서 대부분의 타일이 "아직 이 토픽의 퀴즈가 없습니다" 로
+ * 이어졌다 — 사용자에겐 헛클릭이고, AdSense 심사관에겐 "실질 콘텐츠 없음" 의 전형이다.
+ * 이 카운트로 빈 토픽을 걸러 낸다.
+ *
+ * 정답 컬럼은 건드리지 않는다(0008 에서 anon 의 SELECT 권한이 없다) — id 만 센다.
+ */
+export const getQuizCountsByTopic = unstable_cache(
+  async function fetchQuizCountsByTopic(): Promise<Record<string, number>> {
+    const supabase = getPublicClient();
+    if (!supabase) return {};
+    // 집계 RPC 없이 토픽 컬럼만 훑는다. 퀴즈는 수천 건 규모를 넘지 않으므로 충분하다.
+    const { data, error } = await supabase
+      .from("quizzes")
+      .select("topic")
+      .eq("status", "published");
+    if (error || !data) {
+      if (error) {
+        console.error("[wiki/quizzes] getQuizCountsByTopic 실패", {
+          code: error.code,
+          message: error.message,
+        });
+      }
+      return {};
+    }
+    const counts: Record<string, number> = {};
+    for (const row of data as Array<{ topic: string }>) {
+      counts[row.topic] = (counts[row.topic] ?? 0) + 1;
+    }
+    return counts;
+  },
+  ["wiki-quiz-counts"],
+  { revalidate: QUIZ_COUNT_TTL_SECONDS, tags: ["quizzes"] },
+);
 
 /** 토픽별 랜덤 퀴즈(정답 제외). random_quiz RPC 는 answer/explanation 을 반환하지 않는다. */
 export async function getRandomQuiz(

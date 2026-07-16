@@ -39,6 +39,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // 바깥 클릭·Escape 로 닫는다(UserMenu 와 동일 패턴). 링크 클릭은 각 onClick 이 닫는다.
   useEffect(() => {
@@ -47,7 +48,11 @@ export function MobileNav() {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      // 메뉴가 언마운트되면 그 안에 있던 포커스는 <body> 로 떨어진다 — 키보드 사용자는
+      // 페이지 맨 위부터 다시 탭해야 했다. 연 곳(햄버거)으로 돌려준다.
+      buttonRef.current?.focus();
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -62,6 +67,7 @@ export function MobileNav() {
   return (
     <div ref={ref} className="relative sm:hidden">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="메뉴"

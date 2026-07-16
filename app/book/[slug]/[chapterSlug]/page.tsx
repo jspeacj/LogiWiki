@@ -107,6 +107,11 @@ export default async function ChapterPage({
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10">
+      {/* 읽기 진행 막대(헤더 바로 아래). 순수 CSS 스크롤 애니메이션 — globals.css 참고.
+          챕터 위치({idx+1}/{flat.length})와 예상 소요 시간은 이미 있었지만, 긴 챕터
+          **안에서** 얼마나 왔는지는 알 방법이 없었다. */}
+      <div className="reading-progress" aria-hidden />
+
       {isPublished && <ChapterJsonLd book={book} chapter={chapter} />}
       {/* 조회수는 클라이언트에서 집계(ISR 캐시 히트에도 기록되도록). 미리보기(draft)는 제외. */}
       {isPublished && !preview && <RecordView bookId={book.id} />}
@@ -307,7 +312,9 @@ function ChapterJsonLd({
     about: book.topic_label,
     url,
     isPartOf: { "@type": "Course", name: book.title, url: bookUrl },
-    ...(book.author ? { author: { "@type": "Person", name: book.author.nickname } } : {}),
+    // 저자=조직 / 사람=편집자. 이유는 app/book/[slug]/page.tsx 의 같은 블록 주석 참고.
+    author: { "@type": "Organization", name: "LogiWiki", url: siteConfig.url },
+    editor: { "@type": "Person", name: EDITOR_NAME },
     ...(book.published_at ? { datePublished: book.published_at } : {}),
     dateModified: chapter.updated_at,
     publisher: { "@type": "Organization", name: "LogiWiki", url: siteConfig.url },

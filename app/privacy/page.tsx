@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { canonical, siteConfig, NOINDEX } from "@/lib/site";
-import { CONTACT_EMAIL, PRIVACY_UPDATED_AT } from "@/lib/editorial";
+import { CONTACT_EMAIL, EDITOR_NAME, PRIVACY_UPDATED_AT } from "@/lib/editorial";
 
 export const metadata: Metadata = {
   title: "개인정보처리방침",
@@ -138,12 +138,48 @@ export default function PrivacyPage() {
           계정과 정보를 즉시 삭제합니다.
         </p>
 
-        <h2>9. 문의처</h2>
+        {/*
+          개인정보 보호책임자 — 「개인정보 보호법」 제31조상 **필수 기재 사항**이다.
+          이 방침이 같은 법 준수를 표방하는 이상(1항), 책임자를 지정·공개하지 않으면
+          방침 자체가 요건 미달이다. AdSense 심사에서도 "운영 주체가 특정되는가" 는
+          신뢰 신호로 작용한다 — 익명 사이트는 거절 사유에 가깝다.
+        */}
+        <h2>9. 개인정보 보호책임자 및 문의처</h2>
         <p>
-          개인정보 관련 문의·열람·정정·삭제 요청은 아래로 연락해 주시기 바랍니다.
-          <br />
-          이메일: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          서비스는 개인정보 처리에 관한 업무를 총괄해서 책임지고, 이용자의 불만 처리 및 피해
+          구제를 위하여 아래와 같이 개인정보 보호책임자를 지정하고 있습니다.
         </p>
+        <ul>
+          <li>
+            <strong>개인정보 보호책임자</strong> — {EDITOR_NAME}
+          </li>
+          <li>
+            <strong>이메일</strong> — <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          </li>
+        </ul>
+        <p>
+          개인정보 관련 문의·열람·정정·삭제·처리정지 요청은 위 연락처로 접수해 주시기 바랍니다.
+          접수 후 지체 없이 답변해 드립니다.
+        </p>
+        <p>
+          개인정보 침해로 인한 신고·상담이 필요한 경우 아래 기관에 문의하실 수 있습니다.
+        </p>
+        <ul>
+          <li>
+            개인정보 침해신고센터 —{" "}
+            <a href="https://privacy.kisa.or.kr" target="_blank" rel="noopener noreferrer">
+              privacy.kisa.or.kr
+            </a>{" "}
+            (국번 없이 118)
+          </li>
+          <li>
+            개인정보 분쟁조정위원회 —{" "}
+            <a href="https://www.kopico.go.kr" target="_blank" rel="noopener noreferrer">
+              www.kopico.go.kr
+            </a>{" "}
+            (1833-6972)
+          </li>
+        </ul>
 
         <h2>10. 방침의 변경</h2>
         <p>

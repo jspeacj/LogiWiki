@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { getPublicClient } from "@/lib/supabase/read";
 
 export type RankWindow = "week" | "month" | "year";
@@ -50,35 +51,62 @@ export interface TopBooksParams {
   limit?: number;
 }
 
-/** 랭킹(주/월/년 × 전체/토픽 × 종합/조회수/추천수): top_books RPC. */
+/** 5분. 랭킹이 몇 분 늦게 반영되는 건 사용자가 알아챌 수 없다. */
+const RANKINGS_TTL_SECONDS = 300;
+
+/**
+ * 랭킹(주/월/년 × 전체/토픽 × 종합/조회수/추천수): top_books RPC.
+ *
+ * 결과는 5분 캐시된다. top_books 는 book_view_daily 를 윈도(최대 365일)로 집계하는
+ * 이 앱에서 가장 비싼 쿼리인데, /rankings 라우트는 searchParams 를 읽어 force-dynamic
+ * 이라 **페이지뷰마다** 이 집계를 새로 돌리고 있었다.
+ *
+ * 라우트가 동적인 것과 데이터가 동적이어야 하는 건 별개다 — 여기 입력은 전부 URL 에서
+ * 오고(세션·쿠키 무관, getPublicClient), 출력은 공개 데이터라 캐시 키에 인자만 넣으면
+ * 사용자 간 공유가 안전하다.
+ */
+const topBooksCached = unstable_cache(
+  async function fetchTopBooks(
+    windowDays: number,
+    topic: string | null,
+    sort: RankSort,
+    limit: number,
+  ): Promise<RankedBook[] | null> {
+    // top_books 는 security definer 공개 RPC 라 세션이 필요 없다 → 쿠키 없는 anon 클라이언트.
+    const supabase = getPublicClient();
+    if (!supabase) return null;
+    const { data, error } = await supabase.rpc("top_books", {
+      p_window_days: windowDays,
+      p_topic: topic,
+      p_limit: limit,
+      p_sort: sort,
+    });
+    if (error) {
+      console.error("[wiki/rankings] top_books 실패", {
+        code: error.code,
+        message: error.message,
+      });
+      // 빈 랭킹을 5분간 굳히지 않는다(일시 장애가 "인기 서적 없음" 으로 고착되는 것 방지).
+      return null;
+    }
+    if (!data) return null;
+    return (data as RankedBook[]).map((r) => ({
+      ...r,
+      window_views: Number(r.window_views ?? 0),
+      recommend_count: Number(r.recommend_count ?? 0),
+      score: Number(r.score ?? 0),
+    }));
+  },
+  ["wiki-top-books"],
+  { revalidate: RANKINGS_TTL_SECONDS, tags: ["rankings"] },
+);
+
 export async function topBooks({
   window,
   topic,
   sort = "score",
   limit = 20,
 }: TopBooksParams): Promise<RankedBook[]> {
-  // top_books 는 security definer 공개 RPC 라 세션이 필요 없다 → 쿠키 없는 anon 클라이언트로
-  // 읽어 불필요한 cookies() 의존(동적화)을 피한다.
-  const supabase = getPublicClient();
-  if (!supabase) return [];
-  const { data, error } = await supabase.rpc("top_books", {
-    p_window_days: WINDOW_DAYS[window],
-    p_topic: topic ?? null,
-    p_limit: limit,
-    p_sort: sort,
-  });
-  if (error) {
-    console.error("[wiki/rankings] top_books 실패", {
-      code: error.code,
-      message: error.message,
-    });
-    return [];
-  }
-  if (!data) return [];
-  return (data as RankedBook[]).map((r) => ({
-    ...r,
-    window_views: Number(r.window_views ?? 0),
-    recommend_count: Number(r.recommend_count ?? 0),
-    score: Number(r.score ?? 0),
-  }));
+  const rows = await topBooksCached(WINDOW_DAYS[window], topic ?? null, sort, limit);
+  return rows ?? [];
 }

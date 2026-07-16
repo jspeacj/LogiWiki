@@ -1,5 +1,6 @@
 import "server-only";
 import { getPublicClient, getReadClient } from "@/lib/supabase/read";
+import { createAdminClient, hasAdminEnv } from "@/lib/supabase/admin";
 import { normalizeAuthor } from "@/lib/supabase/embed";
 import { escapeLikeValue } from "@/lib/supabase/filter";
 
@@ -125,6 +126,28 @@ export async function listBooks(
     perPage,
   };
 }
+
+/**
+ * 토픽의 발행 서적 수(행은 안 가져오고 count 만). 요청 단위 캐시 —
+ * generateMetadata 와 페이지 본문이 각각 불러도 쿼리는 1회.
+ *
+ * 용도: 발행 서적이 0권인 토픽 페이지를 noindex 처리한다. 토픽 행은 AI 가 새 분야를
+ * 다루면 생기는데 서적은 검수 후에야 발행되므로, "토픽은 있는데 보여줄 서적이 없는"
+ * 상태가 정상적으로 존재한다. 그 페이지가 색인되면 빈 페이지가 색인되는 셈이다.
+ */
+export const countPublishedBooksByTopic = cache(async function countPublishedBooksByTopic(
+  topic: string,
+): Promise<number> {
+  const supabase = getPublicClient();
+  if (!supabase) return 0;
+  const { count, error } = await supabase
+    .from("books")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "published")
+    .eq("topic", topic);
+  logQueryError("countPublishedBooksByTopic", error);
+  return error ? 0 : (count ?? 0);
+});
 
 /**
  * 현재 로그인 사용자가 즐겨찾기한 **발행된** 서적 목록(최근 추가순).
@@ -262,28 +285,51 @@ export const getChapter = cache(async function getChapter(
   return data as ChapterDetail;
 });
 
+export interface SitemapEntry {
+  path: string;
+  lastmod: string;
+}
+
+export interface SitemapData {
+  /** 발행 서적의 랜딩 + 챕터 경로. */
+  urls: SitemapEntry[];
+  /** **발행 서적이 1권 이상 있는** 토픽만. lastmod = 그 토픽에서 가장 최근에 갱신된 서적. */
+  topics: SitemapEntry[];
+}
+
 /**
- * sitemap 용: 발행 서적의 랜딩 + 챕터 경로(+lastmod). NOINDEX 면 sitemap.ts 가 애초에 호출 안 함.
+ * sitemap 용 데이터. NOINDEX 면 sitemap.ts 가 애초에 호출 안 함.
  * 발행·검증된 것만 색인한다는 규칙의 렌더측 절반(DB측은 RLS).
  *
  * 발행 데이터만 읽으므로 세션이 필요 없다 → 쿠키 없는 anon 클라이언트로 읽어 sitemap 라우트가
  * dynamic 으로 떨어지지 않게 한다(cookies() 접근이 정적화를 막는 것을 회피).
+ *
+ * 토픽을 여기서 같이 뽑는 이유 — 예전엔 sitemap.ts 가 `getTopics()`(=topics 테이블 전체)로
+ * 토픽 URL 을 만들었다. 그런데 서적은 항상 draft 로 들어와 사람이 승인해야 발행되므로,
+ * **발행된 서적이 하나도 없는 토픽 행이 정상적으로 존재한다**(AI 가 새 토픽을 만든 직후,
+ * 혹은 그 초안이 반려된 경우 영구히). 그런 URL 을 sitemap 에 넣으면 "아직 발행된 서적이
+ * 없습니다" 만 있는 빈 페이지를 구글에 제출하는 꼴 — 심사에서 thin content 신호가 된다.
+ * 발행 서적에서 토픽을 역산하면 빈 토픽이 구조적으로 들어올 수 없다.
  */
-export async function getPublishedSitemapUrls(): Promise<
-  Array<{ path: string; lastmod: string }>
-> {
+export async function getSitemapData(): Promise<SitemapData> {
   const supabase = getPublicClient();
-  if (!supabase) return [];
+  if (!supabase) return { urls: [], topics: [] };
   const { data, error } = await supabase
     .from("books")
-    .select("slug, updated_at, chapters(slug, updated_at)")
+    .select("slug, topic, updated_at, chapters(slug, updated_at)")
     .eq("status", "published")
     .not("published_at", "is", null);
-  if (error || !data) return [];
+  if (error || !data) {
+    logQueryError("getSitemapData", error);
+    return { urls: [], topics: [] };
+  }
 
-  const urls: Array<{ path: string; lastmod: string }> = [];
+  const urls: SitemapEntry[] = [];
+  const topicLastmod = new Map<string, string>();
+
   for (const row of data as Array<{
     slug: string;
+    topic: string;
     updated_at: string;
     chapters: Array<{ slug: string; updated_at: string }> | null;
   }>) {
@@ -291,21 +337,38 @@ export async function getPublishedSitemapUrls(): Promise<
     for (const ch of row.chapters ?? []) {
       urls.push({ path: `book/${row.slug}/${ch.slug}`, lastmod: ch.updated_at });
     }
+    const prev = topicLastmod.get(row.topic);
+    if (!prev || row.updated_at > prev) topicLastmod.set(row.topic, row.updated_at);
   }
-  return urls;
+
+  const topics: SitemapEntry[] = [...topicLastmod].map(([slug, lastmod]) => ({
+    path: `topic/${slug}`,
+    lastmod,
+  }));
+
+  return { urls, topics };
 }
 
 /**
- * 조회수 기록(RPC). 렌더 경로 밖에서 after() 로 fire-and-forget 호출.
+ * 조회수 기록(RPC).
  *
- * ⚠️ 쿠키 기반 클라이언트(getClient)를 쓰지 않는다. after() 콜백은 응답이 나간 뒤에
- * 실행되는데, 그 시점에 `cookies()` 접근이 실패하면 예외가 조용히 삼켜져 조회수가
- * 영영 오르지 않는다(실제로 그렇게 깨져 있었다). record_book_view 는 security definer
- * 공개 RPC 라 세션이 필요 없으므로, 쿠키 없는 순수 anon 클라이언트로 호출한다.
+ * ⚠️ 쿠키 기반 클라이언트(getReadClient)를 쓰지 않는다. 조회 기록은 요청 컨텍스트를
+ * 벗어난 곳에서도 불릴 수 있는데, 그 시점에 `cookies()` 접근이 실패하면 예외가 조용히
+ * 삼켜져 조회수가 영영 오르지 않는다(실제로 그렇게 깨져 있었다).
+ *
+ * 0015 부터 **service-role** 로 부른다. record_book_view 는 원래 anon 에게 열린 공개
+ * RPC 였는데, 익명 키가 클라이언트 번들에 있으므로 누구나 PostgREST 로 직접 호출해
+ * 랭킹을 조작할 수 있었다(0008/0009 가 막은 직접 UPDATE 의 우회로). 이제 RPC 는
+ * service-role 전용이고, 뷰어 식별자는 **서버에서** 계산해 넘긴다 — 클라이언트가 해시를
+ * 고를 수 있으면 값을 무작위로 바꿔가며 중복 제거를 우회하므로 둘은 한 쌍이다.
+ *
+ * service-role env 가 없으면(로컬) 조용히 no-op — 조회수는 앱 동작에 필수가 아니다.
  */
-export async function recordBookView(bookId: string): Promise<void> {
-  const supabase = getPublicClient();
-  if (!supabase) return;
-  const { error } = await supabase.rpc("record_book_view", { p_book_id: bookId });
+export async function recordBookView(bookId: string, viewerHash: string): Promise<void> {
+  if (!hasAdminEnv()) return;
+  const { error } = await createAdminClient().rpc("record_book_view", {
+    p_book_id: bookId,
+    p_viewer_hash: viewerHash,
+  });
   logQueryError("recordBookView", error);
 }

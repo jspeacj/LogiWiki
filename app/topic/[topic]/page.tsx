@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTopicBySlug } from "@/lib/wiki/topics-db";
-import { listBooks } from "@/lib/wiki/queries";
+import { countPublishedBooksByTopic, listBooks } from "@/lib/wiki/queries";
 import { parseBookSort } from "@/lib/wiki/types";
 import { normalizePage, normalizePageSize, totalPagesOf } from "@/lib/pagination";
 import { canonical, NOINDEX } from "@/lib/site";
@@ -23,12 +23,19 @@ export async function generateMetadata({
   const { topic } = await params;
   const meta = await getTopicBySlug(topic);
   if (!meta) return { title: "토픽을 찾을 수 없습니다", robots: { index: false, follow: false } };
+
+  // 발행 서적이 없는 토픽은 색인하지 않는다. 토픽 행은 AI 가 새 분야를 다루면 먼저 생기고
+  // 서적은 검수 후에야 발행되므로, 빈 토픽 페이지는 비정상이 아니라 **정상 상태**다.
+  // 그대로 두면 "아직 발행된 서적이 없습니다" 만 있는 페이지가 색인된다(thin content).
+  const bookCount = await countPublishedBooksByTopic(topic);
+  const noindex = NOINDEX || bookCount === 0;
+
   return {
     title: `${meta.label} 학습 서적`,
     description: `${meta.label} — ${meta.desc}. 검수를 거쳐 발행된 ${meta.label} 학습 서적 모음.`,
     // 정렬·페이지는 쿼리 파라미터이므로 canonical 은 기본 URL 로 고정한다(중복 색인 방지).
     alternates: { canonical: canonical(`topic/${topic}`) },
-    robots: NOINDEX ? { index: false, follow: false } : undefined,
+    robots: noindex ? { index: false, follow: false } : undefined,
   };
 }
 

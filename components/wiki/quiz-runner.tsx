@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { Check, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { gradeQuiz, type QuizGradeState } from "@/app/actions/quiz";
 import type { QuizPublic } from "@/lib/wiki/quizzes";
 import { DIFFICULTY_LABEL } from "@/lib/wiki/types";
@@ -27,6 +27,27 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState<QuizGradeState | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const promptId = useId();
+  const promptRef = useRef<HTMLParagraphElement>(null);
+  // "다음 문제" 를 누른 횟수. 0(첫 렌더)이면 포커스를 건드리지 않는다.
+  const [nextCount, setNextCount] = useState(0);
+
+  /*
+    "다음 문제" 를 누르면 그 버튼 자체가 사라진다(result 가 null 이 되면서 언마운트).
+    포커스는 <body> 로 떨어지고, 키보드 사용자는 문서 맨 위로 내던져진 채 새 문제가
+    도착했다는 사실조차 안내받지 못한다(아래 aria-live 는 채점 결과 전용이다).
+    → 새 문제가 오면 문제 문단으로 포커스를 옮긴다. 포커스 이동 자체가 스크린리더의
+      낭독을 유발하므로 별도 live region 없이 announce 문제도 같이 해결된다.
+
+    quiz.id 가 아니라 클릭 횟수에 의존하는 이유: 출제가 랜덤이라 방금과 **같은 문제**가
+    다시 뽑힐 수 있다. 그러면 id 가 그대로라 효과가 안 돌고 포커스는 잃은 채로 남는다.
+    "다음을 눌렀다" 는 사실 자체는 반복돼도 항상 참이므로 이쪽이 안전하다.
+  */
+  useEffect(() => {
+    if (nextCount === 0) return;
+    promptRef.current?.focus();
+  }, [nextCount]);
 
   if (!quiz) {
     return (
@@ -56,6 +77,7 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
     setSelected("");
     setText("");
     setResult(null);
+    setNextCount((n) => n + 1);
     router.refresh();
   }
 
@@ -67,7 +89,13 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
         </span>
       </div>
 
-      <p className="whitespace-pre-line text-base leading-relaxed text-foreground">
+      {/* tabIndex={-1} — 탭 순서엔 안 들어가되 스크립트로 포커스는 줄 수 있게(위 useEffect). */}
+      <p
+        id={promptId}
+        ref={promptRef}
+        tabIndex={-1}
+        className="whitespace-pre-line text-base leading-relaxed text-foreground outline-none"
+      >
         {quiz.prompt}
       </p>
 
@@ -77,34 +105,47 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
         </pre>
       )}
 
+      {/*
+        선택지는 radiogroup 이다.
+        예전엔 평범한 <button> 이라 선택 상태가 **색으로만** 전달됐다 — 스크린리더에는
+        상태 없는 버튼 4개가 똑같이 읽혀서 뭘 골랐는지 알 수 없었고, 묶음으로 인식되지
+        않아 "4개 중 1번" 같은 위치 안내도 없었다. 퀴즈의 핵심 상호작용이라 우선순위가 높다.
+        선택 표시에 체크 아이콘을 더한 것도 같은 이유(테두리 색 대비만으로는 부족).
+      */}
       {quiz.type === "mcq" && quiz.choices && (
-        <div className="flex flex-col gap-2">
-          {quiz.choices.map((choice) => (
-            <button
-              key={choice.key}
-              type="button"
-              disabled={!!result?.ok}
-              onClick={() => setSelected(choice.key)}
-              className={cn(
-                "flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-70",
-                selected === choice.key
-                  ? "border-brand/50 bg-brand/10 text-foreground"
-                  : "border-white/10 bg-white/[0.02] text-muted-strong hover:border-white/20 hover:text-foreground",
-              )}
-            >
-              <span
+        <div role="radiogroup" aria-labelledby={promptId} className="flex flex-col gap-2">
+          {quiz.choices.map((choice) => {
+            const isSelected = selected === choice.key;
+            return (
+              <button
+                key={choice.key}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                disabled={!!result?.ok}
+                onClick={() => setSelected(choice.key)}
                 className={cn(
-                  "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                  selected === choice.key
-                    ? "border-brand/60 bg-brand/20 text-brand"
-                    : "border-white/15 text-muted",
+                  "flex items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                  isSelected
+                    ? "border-brand/50 bg-brand/10 text-foreground"
+                    : "border-white/10 bg-white/[0.02] text-muted-strong hover:border-white/20 hover:text-foreground",
                 )}
               >
-                {choice.key}
-              </span>
-              {choice.text}
-            </button>
-          ))}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                    isSelected
+                      ? "border-brand/60 bg-brand/20 text-brand"
+                      : "border-white/15 text-muted",
+                  )}
+                >
+                  {isSelected ? <Check className="size-3.5" strokeWidth={2.6} /> : choice.key}
+                </span>
+                {choice.text}
+              </button>
+            );
+          })}
         </div>
       )}
 

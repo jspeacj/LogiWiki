@@ -45,6 +45,7 @@ const ACCENTS: Record<PlatformKey, string> = {
 export function AppsMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   // 바깥 클릭 / Esc 로 닫기
   useEffect(() => {
@@ -53,7 +54,10 @@ export function AppsMenu() {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      // 메뉴 안에 있던 포커스가 언마운트와 함께 <body> 로 사라지지 않도록 트리거로 되돌린다.
+      buttonRef.current?.focus();
     }
     document.addEventListener("mousedown", onPointer);
     document.addEventListener("keydown", onKey);
@@ -66,6 +70,7 @@ export function AppsMenu() {
   return (
     <div ref={ref} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label="LogiKit Apps 전체 서비스 열기"

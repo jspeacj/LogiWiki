@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { TOPICS as BUILTIN_TOPICS, type Topic } from "./topics";
 
@@ -27,36 +28,62 @@ type Row = {
   source: string;
 };
 
-/** 요청 단위 캐시 — 한 페이지에서 여러 번 불러도 쿼리는 1회. */
-export const getTopics = cache(async function getTopics(): Promise<Topic[]> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return BUILTIN_TOPICS;
+/** 토픽 캐시 무효화 태그 — 토픽 행을 새로 만드는 쪽에서 revalidateTag 로 쓴다. */
+export const TOPICS_CACHE_TAG = "topics";
 
-  const supabase = createSupabaseClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await supabase
-    .from("topics")
-    .select(TABLE_COLUMNS)
-    .order("sort_order", { ascending: true });
+/** 5분. 토픽은 AI 가 새 분야를 다룰 때만 늘어나므로 몇 분 지연은 눈에 띄지 않는다. */
+const TOPICS_TTL_SECONDS = 300;
 
-  if (error || !data || data.length === 0) {
-    if (error) {
-      console.error("[wiki/topics-db] getTopics 실패 — 내장 토픽으로 폴백", {
-        code: error.code,
-        message: error.message,
-      });
+/**
+ * 실제 DB 읽기 — 요청/렌더를 넘어 5분간 캐시된다.
+ *
+ * React 의 `cache()` 는 **요청 단위**라서 렌더 간에는 아무것도 재사용되지 않는다.
+ * 그런데 토픽을 읽는 라우트 상당수가 force-dynamic(/books·/topic·/rankings·/favorites)이라,
+ * 페이지뷰마다 topics 테이블 SELECT + Supabase 클라이언트 생성을 새로 하고 있었다 —
+ * 하루에 몇 번 바뀔까 말까 한 14행짜리 목록을 위해서.
+ *
+ * 공개·읽기 전용 데이터라 사용자별로 다를 게 없다 → 프로세스 간 공유 캐시가 안전하다.
+ */
+const getTopicsCached = unstable_cache(
+  async function fetchTopics(): Promise<Topic[] | null> {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) return null;
+
+    const supabase = createSupabaseClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await supabase
+      .from("topics")
+      .select(TABLE_COLUMNS)
+      .order("sort_order", { ascending: true });
+
+    if (error || !data || data.length === 0) {
+      if (error) {
+        console.error("[wiki/topics-db] getTopics 실패 — 내장 토픽으로 폴백", {
+          code: error.code,
+          message: error.message,
+        });
+      }
+      // ⚠️ null 을 반환해 **폴백을 캐시하지 않는다**. 일시적 장애 때 내장 14개를 5분간
+      // 굳혀버리면 그 사이 AI 가 만든 토픽이 사라진 것처럼 보인다.
+      return null;
     }
-    return BUILTIN_TOPICS;
-  }
 
-  return (data as Row[]).map((r) => ({
-    slug: r.slug,
-    label: r.label,
-    desc: r.description,
-    accent: r.accent,
-  }));
+    return (data as Row[]).map((r) => ({
+      slug: r.slug,
+      label: r.label,
+      desc: r.description,
+      accent: r.accent,
+    }));
+  },
+  ["wiki-topics"],
+  { revalidate: TOPICS_TTL_SECONDS, tags: [TOPICS_CACHE_TAG] },
+);
+
+/** 요청 단위 캐시 — 한 페이지에서 여러 번 불러도 캐시 조회조차 1회. */
+export const getTopics = cache(async function getTopics(): Promise<Topic[]> {
+  return (await getTopicsCached()) ?? BUILTIN_TOPICS;
 });
 
 export const getTopicMap = cache(async function getTopicMap(): Promise<
