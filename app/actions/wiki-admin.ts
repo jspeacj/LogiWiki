@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin, type ActionState } from "@/lib/auth/actions";
 import { topicExists } from "@/lib/wiki/topics-db";
+import { BOOKS_CACHE_TAG } from "@/lib/wiki/queries";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
 import { MODEL_DRAFT } from "@/lib/ai/claude";
 
@@ -66,6 +67,9 @@ export async function approveBook(bookId: string, slug?: string): Promise<AdminA
   revalidatePath("/admin");
   revalidatePath("/");
   if (slug) revalidatePath(`/book/${slug}`);
+  // 승인 = 목록에 등장하는 순간. 태그를 안 털면 최대 5분간 "발행했는데 목록에 없다"가 된다
+  // (revalidatePath 로는 안 지워진다 — 별개 캐시다). lib/wiki/queries.ts 참고.
+  revalidateTag(BOOKS_CACHE_TAG, "max");
   return { ok: true };
 }
 

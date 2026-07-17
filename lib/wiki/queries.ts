@@ -5,6 +5,7 @@ import { normalizeAuthor } from "@/lib/supabase/embed";
 import { escapeLikeValue } from "@/lib/supabase/filter";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   BookDetail,
@@ -92,15 +93,37 @@ export interface ListBooksResult {
   perPage: number;
 }
 
-/** 발행된 서적 목록(토픽 필터·제목 검색·정렬·페이지네이션). RLS 로도 published 만 노출됨. */
-export async function listBooks(
-  params: ListBooksParams = {},
-): Promise<ListBooksResult> {
-  const { topic, q, sort = "recent", page = 1, perPage = 24 } = params;
+/** 서적 목록 캐시 무효화 태그 — 발행 목록을 바꾸는 쪽에서 revalidateTag 로 쓴다. */
+export const BOOKS_CACHE_TAG = "books";
+
+/**
+ * 60초. **홈의 `export const revalidate = 60` 과 반드시 맞춘다**(app/page.tsx).
+ *
+ * 랭킹·토픽(300초)을 따라 5분으로 잡으면 안 된다. 홈은 60초 ISR 이고 "조회수가 1분 늦게
+ * 반영되는 대신" 이라고 계약을 명시해 뒀는데, 안쪽 데이터 캐시가 5분이면 홈이 60초마다
+ * 재렌더돼도 최대 5분 묵은 카운터를 받는다 — 라우트는 갱신되는데 데이터가 안 갱신되니
+ * 그 계약이 조용히 깨진다(캐시가 두 겹일 때 실제 신선도는 **더 긴 쪽**이 정한다).
+ *
+ * 발행·수정·삭제는 태그로 즉시 turn 되므로(아래) TTL 이 좌우하는 건 카운터 지연뿐이다.
+ * 60초로도 페이지뷰마다 돌던 쿼리는 사라진다 — 조합당 분당 1회로 수렴한다.
+ */
+const BOOKS_TTL_SECONDS = 60;
+
+/**
+ * 실제 DB 읽기. 실패·env 미설정이면 **null**(호출부가 빈 결과로 degrade).
+ * 캐시 여부와 무관한 순수 쿼리 — 캐시 경로/비캐시 경로가 이걸 공유한다.
+ */
+async function queryBooks(
+  topic: string | null,
+  q: string,
+  sort: BookSort,
+  page: number,
+  perPage: number,
+): Promise<ListBooksResult | null> {
   // published 만 조회한다 → 세션이 필요 없다. 쿠키 클라이언트를 쓰면 cookies() 때문에
   // 라우트가 dynamic 으로 떨어져 홈/목록의 `export const revalidate` 가 무시된다.
   const supabase = getPublicClient();
-  if (!supabase) return { items: [], total: 0, page, perPage };
+  if (!supabase) return null;
 
   const from = (page - 1) * perPage;
   const to = from + perPage - 1;
@@ -113,11 +136,11 @@ export async function listBooks(
     .range(from, to);
 
   if (topic) query = query.eq("topic", topic);
-  if (q && q.trim()) query = query.ilike("title", `%${escapeLikeValue(q.trim())}%`);
+  if (q) query = query.ilike("title", `%${escapeLikeValue(q)}%`);
 
   const { data, error, count } = await query;
   logQueryError("listBooks", error);
-  if (error || !data) return { items: [], total: 0, page, perPage };
+  if (error || !data) return null;
 
   return {
     items: (data as Record<string, unknown>[]).map(mapBook),
@@ -125,6 +148,55 @@ export async function listBooks(
     page,
     perPage,
   };
+}
+
+/**
+ * 발행 서적 목록(검색어 없는 경우) — 5분 캐시, 사용자 간 공유.
+ *
+ * listBooks 는 이 앱에서 가장 자주 도는 쿼리다(홈 ×2, /books, /topic). 그런데 /books·/topic
+ * 은 force-dynamic 이라 **페이지뷰마다** books SELECT + `count:"exact"`(전체 카운트 = 인덱스로
+ * 못 끝내는 스캔)를 새로 돌고 있었다. 입력은 전부 URL 에서 오고(세션·쿠키 무관, getPublicClient)
+ * 출력은 published 공개 데이터라, 캐시 키에 인자만 넣으면 사용자 간 공유가 안전하다.
+ *
+ * ⚠️ 실패 시 **throw** 한다 — 빈 목록을 5분간 굳히지 않기 위해서다. unstable_cache 는 거부된
+ * 프로미스를 캐시하지 않으므로, 일시 장애가 "서적 없음"으로 고착되지 않는다(호출부가 catch).
+ * null 을 반환하면 그 null 이 캐시되어 정확히 그 사고가 난다.
+ */
+const listBooksCached = unstable_cache(
+  async function fetchBooks(
+    topic: string | null,
+    sort: BookSort,
+    page: number,
+    perPage: number,
+  ): Promise<ListBooksResult> {
+    const result = await queryBooks(topic, "", sort, page, perPage);
+    if (!result) throw new Error("listBooks: query failed (not cached)");
+    return result;
+  },
+  ["wiki-list-books"],
+  { revalidate: BOOKS_TTL_SECONDS, tags: [BOOKS_CACHE_TAG] },
+);
+
+/** 발행된 서적 목록(토픽 필터·제목 검색·정렬·페이지네이션). RLS 로도 published 만 노출됨. */
+export async function listBooks(
+  params: ListBooksParams = {},
+): Promise<ListBooksResult> {
+  const { topic, q, sort = "recent", page = 1, perPage = 24 } = params;
+  const search = typeof q === "string" ? q.trim() : "";
+  const empty: ListBooksResult = { items: [], total: 0, page, perPage };
+
+  // 🚨 검색은 캐시하지 않는다. q 는 사용자가 치는 임의 문자열이라 캐시 키가 무한히 늘어난다
+  // (한 번 쓰이고 5분간 남는 엔트리가 검색마다 하나씩). 캐시가 노리는 건 목록 브라우징이다.
+  if (search) {
+    return (await queryBooks(topic ?? null, search, sort, page, perPage)) ?? empty;
+  }
+
+  try {
+    return await listBooksCached(topic ?? null, sort, page, perPage);
+  } catch {
+    // 쿼리 실패(로그는 queryBooks 가 남긴다) 또는 env 미설정 → 빈 목록으로 degrade.
+    return empty;
+  }
 }
 
 /**

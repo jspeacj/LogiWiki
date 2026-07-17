@@ -1,11 +1,29 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin, isRateLimited, type ActionState } from "@/lib/auth/actions";
 import { topicExists } from "@/lib/wiki/topics-db";
+import { BOOKS_CACHE_TAG } from "@/lib/wiki/queries";
 import { shortSuffix, slugify } from "@/lib/slug";
 import { BOOK_LANGUAGES } from "@/lib/wiki/types";
+
+/**
+ * 발행 서적 목록(홈·/books·/topic)에 영향을 주는 변경 후 캐시 무효화.
+ *
+ * listBooks 결과는 5분 캐시된다(lib/wiki/queries.ts, tag="books"). 무효화하지 않으면
+ * 발행·수정·삭제가 최대 5분간 목록에 반영되지 않는다 — "발행했는데 목록에 안 뜬다"가 된다.
+ * revalidatePath 로는 이 태그가 안 지워진다(둘은 별개 캐시다).
+ *
+ * Next 16: revalidateTag 는 2인자다. "max" = stale-while-revalidate(권장) —
+ * 1인자 형태는 즉시 만료라 다음 요청이 블로킹 미스가 되고, 이제 deprecated 다.
+ *
+ * ⚠️ draft 만 건드리는 경로(createBook·rejectBooks)는 부르지 않는다 — 발행 목록이
+ *    바뀌지 않으므로 캐시를 버릴 이유가 없다.
+ */
+function revalidateBookSurfaces(): void {
+  revalidateTag(BOOKS_CACHE_TAG, "max");
+}
 
 /**
  * 서적 계열 쓰기는 전부 관리자 전용이다.
@@ -104,6 +122,8 @@ export async function updateBook(
   revalidatePath(`/admin/books/${parsed.data.id}`);
   revalidatePath(`/book/${data.slug}`);
   revalidatePath("/");
+  // 제목·설명·토픽이 목록 카드에 그대로 나간다(발행본이면 즉시 반영돼야 한다).
+  revalidateBookSurfaces();
   return { ok: true, id: parsed.data.id, slug: data.slug };
 }
 
@@ -207,6 +227,8 @@ export async function setBookStatus(
   revalidatePath("/admin");
   revalidatePath("/admin/books");
   revalidatePath(`/admin/books/${bookId}`);
+  // 발행/발행취소 = 목록에 들고 나는 것 자체다.
+  revalidateBookSurfaces();
   return { ok: true };
 }
 
@@ -219,5 +241,7 @@ export async function deleteBook(bookId: string): Promise<WikiActionState> {
   const { error } = await session.supabase.from("books").delete().eq("id", bookId);
   if (error) return { error: "WRITE_FAILED" };
   revalidatePath("/admin");
+  // 발행본이었다면 목록에 유령 카드로 남는다(클릭하면 404).
+  revalidateBookSurfaces();
   return { ok: true };
 }
