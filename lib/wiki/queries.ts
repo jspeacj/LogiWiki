@@ -7,6 +7,8 @@ import { escapeLikeValue } from "@/lib/supabase/filter";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getTopics } from "./topics-db";
+import type { Topic } from "./topics";
 import type {
   BookDetail,
   BookListItem,
@@ -220,6 +222,58 @@ export const countPublishedBooksByTopic = cache(async function countPublishedBoo
   logQueryError("countPublishedBooksByTopic", error);
   return error ? 0 : (count ?? 0);
 });
+
+/**
+ * 토픽별 발행 서적 수(모든 토픽 한 번에). getQuizCountsByTopic 의 서적판이다.
+ *
+ * 왜 필요한가 — 토픽 그리드·칩은 DB 의 **모든** 토픽을 링크하는데, 서적은 하루 1권씩만
+ * 검수 후 발행된다(daily-book.yml). 그래서 대부분의 타일이 "아직 발행된 서적이 없습니다" 로
+ * 이어졌다 — 사용자에겐 헛클릭이고, AdSense 심사관에겐 "실질 콘텐츠 없음" 의 전형이다
+ * (/quiz 와 /topic/[topic] 은 이미 같은 이유로 빈 것을 걸러 낸다). 이 카운트로 빈 토픽을
+ * 걸러 낸다 → getTopicsWithBooks.
+ *
+ * 필터 기준은 listBooks(queryBooks)와 **같은 status='published'** 여야 한다 — 여기서 count>0
+ * 이라고 노출한 토픽을 눌렀을 때 실제로 listBooks 가 서적을 내놓아야 헛클릭이 안 된다.
+ * 발행을 바꾸는 쪽이 revalidateTag(BOOKS_CACHE_TAG)로 즉시 무효화한다.
+ *
+ * 실패 시 {} 를 돌려도(그리고 캐시돼도) 안전하다 — getTopicsWithBooks 가 빈 카운트면
+ * 전체 토픽으로 폴백하므로 변경 전 동작과 같아진다.
+ */
+export const getBookCountsByTopic = unstable_cache(
+  async function fetchBookCountsByTopic(): Promise<Record<string, number>> {
+    const supabase = getPublicClient();
+    if (!supabase) return {};
+    const { data, error } = await supabase
+      .from("books")
+      .select("topic")
+      .eq("status", "published");
+    if (error || !data) {
+      logQueryError("getBookCountsByTopic", error);
+      return {};
+    }
+    const counts: Record<string, number> = {};
+    for (const row of data as Array<{ topic: string }>) {
+      counts[row.topic] = (counts[row.topic] ?? 0) + 1;
+    }
+    return counts;
+  },
+  ["wiki-book-counts"],
+  { revalidate: BOOKS_TTL_SECONDS, tags: [BOOKS_CACHE_TAG] },
+);
+
+/**
+ * 발행 서적이 1권 이상 있는 토픽만(그리드·칩의 진입점 목록). 없으면 **전체 토픽으로 폴백**.
+ *
+ * 🚨 폴백이 이 함수의 핵심이다. 발행 서적이 0권이면(초기 상태, 혹은 초안이 전부 반려된 경우)
+ * 필터 결과가 비어 홈 그리드가 통째로 사라진다 → 히어로 + 빈 그리드 = "파킹된 사이트" 인상.
+ * 그럴 땐 전체 토픽을 그대로 보여준다(변경 전 동작). 즉 이 필터는 **보여줄 서적이 실제로
+ * 있을 때만** 좁히고, 그렇지 않으면 손해를 끼치지 않는다.
+ */
+export async function getTopicsWithBooks(): Promise<Topic[]> {
+  const [topics, counts] = await Promise.all([getTopics(), getBookCountsByTopic()]);
+  const filtered = topics.filter((t) => (counts[t.slug] ?? 0) > 0);
+  return filtered.length > 0 ? filtered : topics;
+}
 
 /**
  * 현재 로그인 사용자가 즐겨찾기한 **발행된** 서적 목록(최근 추가순).

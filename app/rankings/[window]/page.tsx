@@ -10,7 +10,8 @@ import {
   type RankSort,
   type RankWindow,
 } from "@/lib/wiki/rankings";
-import { getTopicMap, getTopics } from "@/lib/wiki/topics-db";
+import { getTopicsWithBooks } from "@/lib/wiki/queries";
+import { getTopicMap } from "@/lib/wiki/topics-db";
 import { canonical, NOINDEX } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +85,7 @@ export default async function RankingsPage({
 
   const [books, topics, topicMap] = await Promise.all([
     topBooks({ window, topic, sort }),
-    getTopics(),
+    getTopicsWithBooks(),
     getTopicMap(),
   ]);
   const labelOf = (slug: string) => topicMap[slug]?.label ?? slug;

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listBooks } from "@/lib/wiki/queries";
+import { getTopicsWithBooks, listBooks } from "@/lib/wiki/queries";
 import { parseBookSort } from "@/lib/wiki/types";
-import { getTopics, topicExists } from "@/lib/wiki/topics-db";
+import { topicExists } from "@/lib/wiki/topics-db";
 import { normalizePage, normalizePageSize, totalPagesOf } from "@/lib/pagination";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
@@ -29,7 +29,7 @@ export default async function BooksPage({
 }) {
   const query = await searchParams;
 
-  const topics = await getTopics();
+  const topics = await getTopicsWithBooks();
   const topic = (await topicExists(query.topic)) ? (query.topic as string) : undefined;
   const sort = parseBookSort(query.sort);
   const perPage = normalizePageSize(query.per);
