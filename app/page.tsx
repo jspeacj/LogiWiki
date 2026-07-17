@@ -10,6 +10,10 @@ import { TopicGrid } from "@/components/wiki/topic-grid";
  * 매 요청 SSR(force-dynamic)이던 것을 바꿨다. 홈에 필요한 건 "발행된 서적 목록"이고,
  * 발행 시점에 revalidatePath("/") 가 호출되므로 즉시 갱신된다. 조회수가 1분 늦게 반영되는
  * 대신 대부분의 방문자가 캐시된 HTML 을 받는다(TTFB·DB 부하 감소).
+ *
+ * ⚠️ 이 값을 바꾸면 `BOOKS_TTL_SECONDS`(lib/wiki/queries.ts)도 함께 봐야 한다. listBooks
+ * 결과가 그 TTL 로 따로 캐시되므로, **실제 신선도는 둘 중 더 긴 쪽**이 정한다. 여기만 60 으로
+ * 두고 저쪽이 300 이면 홈은 60초마다 재렌더되면서도 5분 묵은 카운터를 받는다(위 "1분" 이 거짓이 된다).
  */
 export const revalidate = 60;
 
