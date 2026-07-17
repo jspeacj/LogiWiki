@@ -97,6 +97,45 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - cron/AI 는 service-role 클라(유저세션 없음). `ANTHROPIC_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY` 는 절대 `NEXT_PUBLIC_` 아님.
 - **Admin SSOT**: `lib/auth/admin.ts::ADMIN_EMAIL` == DB `public.is_admin()` 이메일. 반드시 동기화.
 
+## proxy 는 모든 네비게이션의 고정 비용이다 (`lib/supabase/proxy.ts`)
+
+`proxy.ts` 는 **모든 요청 앞**에 선다 — 정적 페이지도, `<Link>` 프리페치도. 여기서 하는 일은
+전부 "클릭 → 화면 전환"에 그대로 더해진다.
+
+**`supabase.auth.getUser()` 는 쿠키 읽기가 아니라 Supabase Auth 서버로 나가는 네트워크 왕복이다.**
+예전엔 그걸 모든 요청에서 무조건 했다 → 비로그인 방문자도, `/about` 도, 프리페치도 전부 왕복 1회.
+프리페치는 `loading.tsx` 셸을 미리 받아 클릭 즉시 보여주라고 있는 건데 그 프리페치가 느려지니,
+**클릭해도 1~2초 아무 반응이 없는** 체감이 됐다. Next 문서도 같은 말을 한다
+(`docs/01-app/02-guides/authentication.md`): proxy 는 프리페치 포함 모든 라우트에서 도니
+**쿠키만 읽고(optimistic) DB/네트워크 조회는 하지 말 것.**
+
+그래서 지금은 쿠키만 보고 두 번 걸러낸다. 실측(가짜 Supabase 로 왕복 카운트)으로 확인한 결과:
+비로그인 5 네비게이션 → **0회**, 신선한 토큰 5 네비게이션 → **0회**, 만료 임박 → **1회(갱신 유지)**.
+
+- **세션 쿠키 없음 → 즉시 통과.** 갱신할 세션이 없으므로 왕복은 "로그인 안 됨"을 확인하는 낭비다.
+- **토큰이 아직 살아 있음(만료 >2분) → 즉시 통과.** proxy 의 일은 *만료 임박 토큰 갱신*이지 매 요청
+  신원 재검증이 아니다. 신원이 필요한 화면은 각자 `getServerAuth()` 로 검증하고 데이터는 RLS 가
+  막는다 — **proxy 는 보안 경계가 아니다.** 쿠키를 해석 못 하면 건너뛰지 말고 `getUser()` 로 확인한다.
+
+🚨 **프리페치는 헤더로 구분할 수 없다.** Next 16 은 `next-router-prefetch`·`rsc` 같은 내부 헤더를
+**proxy 에 넘기기 전에 제거한다**(임의의 커스텀 헤더나 `purpose` 는 그대로 통과하는데 이것들만
+사라진다 — 실측 확인). "프리페치일 때만 건너뛰기" 식 코드는 **절대 실행되지 않는다.** 추가하지 말 것.
+
+세션 쿠키 이름 규칙은 supabase-js 기본값이다: `sb-<hostname.split(".")[0]>-auth-token`, 4KB 초과 시
+`.0`/`.1` 로 쪼개진다. 값은 `base64-` + **base64url**(표준 base64 아님) + JSON. Edge 런타임엔 `Buffer`
+가 없으므로 `atob` + `TextDecoder` 로 푼다(한글 닉네임 때문에 UTF-8 디코딩 필수).
+
+### `loading.tsx` 가 없으면 프리페치가 줄 게 없다
+
+동적 라우트의 프리페치는 **`loading.tsx` 경계까지만** 받아온다. 경계가 없으면 클릭 후 서버 렌더가
+끝날 때까지 화면이 그대로 멈춘다. 인증 게이트 + 무거운 쿼리가 있는 라우트(`/account`·`/admin`)가
+정확히 그 상태였다. 세그먼트의 `loading.tsx` 는 **자기 하위 라우트까지 덮는다**
+(`app/admin/loading.tsx` 가 `/admin/books`·`/admin/books/[id]` 도 담당).
+
+부수 효과로 알아둘 것: 경계 아래에서 `redirect()` 가 걸리면 응답이 이미 200 으로 커밋된 뒤라
+**307 대신 스트리밍 리다이렉트**로 나간다(`<meta http-equiv=refresh>` 는 no-JS 폴백). 게이트·정보
+노출은 그대로 안전하다(리다이렉트는 렌더 전에 던져지므로 본문이 새지 않는다).
+
 ## 마이그레이션 (신선한 DB, 의존성 순서로 SQL Editor 에 수동 실행)
 
 `supabase/migrations/NNNN_*.sql` — 멱등(`if not exists`/`create or replace`/`drop ... if exists`).
