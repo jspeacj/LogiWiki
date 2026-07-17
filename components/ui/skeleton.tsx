@@ -3,12 +3,15 @@ import { cn } from "@/lib/utils";
 /**
  * 로딩 스켈레톤 조각.
  * 실제 콘텐츠와 같은 크기·간격을 유지해 레이아웃 시프트(CLS)를 만들지 않는다.
+ *
+ * 채움색은 skeleton-fill(globals.css) — 표면색 유틸(bg-white/[0.06])을 쓰면 배경 대비가
+ * 1.11:1 이라 보이지 않는다(= 로딩 경계가 있어도 "빈화면"으로 느껴진다). 이유는 그쪽 주석에.
  */
 export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={cn("animate-pulse rounded-lg bg-white/[0.06]", className)}
+      className={cn("animate-pulse rounded-lg skeleton-fill", className)}
     />
   );
 }
