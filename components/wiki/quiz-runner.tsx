@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { gradeQuiz, type QuizGradeState } from "@/app/actions/quiz";
 import type { QuizPublic } from "@/lib/wiki/quizzes";
 import { DIFFICULTY_LABEL } from "@/lib/wiki/types";
@@ -180,8 +180,22 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
           aria-live="polite"
           className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4"
         >
+          {/*
+            correct 는 **3상태**다: true(정답) / false(오답) / null(채점 보류).
+            null 은 AI 채점이 실패했다는 뜻이다(lib/ai/grade.ts — 절대 throw 하지 않고 null 폴백).
+
+            예전엔 `result.correct ? 정답 : 오답` 이라 null 이 falsy 로 떨어져 **"오답"·점수 0** 이
+            떴다. 바로 옆 feedback 은 "자동 채점을 일시적으로 사용할 수 없습니다" 라고 말하는데
+            배지는 오답이라고 단정하는, 정답을 맞힌 사람에게 틀렸다고 하는 화면이었다.
+            3상태를 2상태로 뭉개면 안 된다 — 모르는 것과 틀린 것은 다르다.
+          */}
           <div className="flex items-center gap-2">
-            {result.correct ? (
+            {result.correct === null ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+                <AlertCircle className="size-3.5" strokeWidth={2.2} />
+                채점 보류
+              </span>
+            ) : result.correct ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                 <CheckCircle2 className="size-3.5" strokeWidth={2.2} />
                 정답
@@ -192,7 +206,10 @@ export function QuizRunner({ quiz }: { quiz: QuizPublic | null }) {
                 오답
               </span>
             )}
-            <span className="text-sm text-muted">점수 {result.score}</span>
+            {/* 채점 보류일 때 "점수 0" 은 오답으로 읽힌다 — 점수 자체를 숨긴다. */}
+            {result.correct !== null && (
+              <span className="text-sm text-muted">점수 {result.score}</span>
+            )}
           </div>
           {result.feedback && (
             <p className="text-sm leading-relaxed text-foreground">{result.feedback}</p>

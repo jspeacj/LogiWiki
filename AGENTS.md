@@ -150,6 +150,9 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - `0013_publish_admin_only` — 발행(published)은 소스 무관 **관리자만**, INSERT 경로까지 차단 (**필수**)
 - `0014_bookmarks` — 서적 즐겨찾기(`public.book_bookmarks`, 비공개·owner 전용 RLS, 카운터 없음) (**필수**)
 - `0015_abuse_hardening` — `quiz_attempts` UPDATE/DELETE 차단(채점 카운터 위조 방지) + `record_book_view` 를 service-role 전용으로 회수하고 뷰어·일자 단위 중복 제거 도입 (**필수**)
+- `0016_quiz_type_filter` — `random_quiz` 에 `p_type` 추가(채점 불가 유형 출제 차단). 2인자 구버전은 DROP(오버로드 모호성 방지) (**필수 — 코드보다 먼저 실행**)
+
+> 🚨 **`0016` 은 코드 배포보다 먼저 실행해야 한다.** `lib/wiki/quizzes.ts` 가 3인자 `random_quiz` 를 호출하므로, 미실행 DB 에 새 코드가 올라가면 시그니처가 없어 호출이 실패하고 `/quiz/[topic]` 이 "문제 없음" 으로 죽는다.
 
 ## 토픽 SSOT = DB (`public.topics`)
 

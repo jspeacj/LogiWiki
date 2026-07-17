@@ -27,6 +27,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: SITE_URL, changeFrequency: "daily", priority: 1 },
     { url: `${SITE_URL}/books`, changeFrequency: "daily", priority: 0.9 },
+    // /quiz 는 색인 대상이다(app/quiz/page.tsx 는 NOINDEX 일 때만 index:false).
+    // 문항이 있는 토픽만 노출하므로(getQuizCountsByTopic) 빈 페이지가 등록될 일은 없다.
+    // 하위 /quiz/[topic] 은 항상 noindex(랜덤 출제라 고유 콘텐츠가 없다) → 등록하지 않는다.
+    { url: `${SITE_URL}/quiz`, changeFrequency: "weekly", priority: 0.6 },
     // 정적 정보 페이지 — AdSense 심사가 존재를 확인하는 페이지들.
     { url: `${SITE_URL}/about`, changeFrequency: "monthly", priority: 0.4 },
     { url: `${SITE_URL}/contact`, changeFrequency: "monthly", priority: 0.3 },
