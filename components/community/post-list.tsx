@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Eye, MessageSquare, Inbox } from "lucide-react";
 import type { PostListItem } from "@/lib/community/types";
-import { formatRelativeOrDate } from "@/lib/community/format";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { CategoryBadge } from "./category-badge";
 
 export function PostList({
@@ -48,7 +48,7 @@ export function PostList({
                   {post.author?.nickname ?? "—"}
                 </span>
                 <span aria-hidden>·</span>
-                <span>{formatRelativeOrDate(post.created_at)}</span>
+                <span><RelativeTime iso={post.created_at} /></span>
               </div>
             </div>
 

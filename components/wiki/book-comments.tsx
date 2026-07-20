@@ -11,7 +11,7 @@ import {
   type ActionState,
 } from "@/app/actions/book-social";
 import { useAuth } from "@/lib/auth/context";
-import { formatRelativeOrDate } from "@/lib/community/format";
+import { RelativeTime } from "@/components/ui/relative-time";
 import type { BookCommentItem } from "@/lib/wiki/social";
 import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
@@ -154,7 +154,7 @@ function CommentRow({
             {comment.author?.nickname ?? "익명"}
           </span>
           <span className="text-xs text-muted">
-            {formatRelativeOrDate(comment.created_at)}
+            <RelativeTime iso={comment.created_at} />
           </span>
           {comment.edited && <span className="text-xs text-muted">(수정됨)</span>}
         </div>

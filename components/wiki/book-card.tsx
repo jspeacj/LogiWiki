@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CalendarDays, Eye, ThumbsUp, User } from "lucide-react";
 import type { BookListItem } from "@/lib/wiki/types";
-import { formatRelativeOrDate } from "@/lib/community/format";
+import { groupDigits } from "@/lib/community/format";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { cn } from "@/lib/utils";
 
 /**
@@ -41,17 +42,17 @@ export function BookCardContent({ book }: { book: BookListItem }) {
           className="inline-flex items-center gap-1"
         >
           <CalendarDays className="size-3.5" strokeWidth={2} />
-          {formatRelativeOrDate(book.published_at ?? book.created_at)}
+          <RelativeTime iso={book.published_at ?? book.created_at} />
         </time>
 
         <span className="ml-auto inline-flex items-center gap-3">
           <span className="inline-flex items-center gap-1">
             <Eye className="size-3.5" strokeWidth={2} />
-            {book.view_count.toLocaleString()}
+            {groupDigits(book.view_count)}
           </span>
           <span className="inline-flex items-center gap-1">
             <ThumbsUp className="size-3.5" strokeWidth={2} />
-            {book.recommend_count.toLocaleString()}
+            {groupDigits(book.recommend_count)}
           </span>
         </span>
       </div>

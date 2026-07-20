@@ -5,7 +5,8 @@ import { draftMode } from "next/headers";
 import { BookOpen, CalendarDays, Eye, EyeOff, ThumbsUp, User } from "lucide-react";
 import { getBookBySlug } from "@/lib/wiki/queries";
 import { getBookComments } from "@/lib/wiki/social";
-import { formatDateTime, formatRelativeOrDate } from "@/lib/community/format";
+import { formatDateTime, groupDigits } from "@/lib/community/format";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { canonical, NOINDEX, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
@@ -131,15 +132,15 @@ export default async function BookLandingPage({
           >
             <CalendarDays className="size-4" strokeWidth={2} />
             {isPublished ? "발행" : "작성"}{" "}
-            {formatRelativeOrDate(book.published_at ?? book.created_at)}
+            <RelativeTime iso={book.published_at ?? book.created_at} />
           </time>
           <span className="inline-flex items-center gap-1.5">
             <Eye className="size-4" strokeWidth={2} />
-            조회 {book.view_count.toLocaleString()}
+            조회 {groupDigits(book.view_count)}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <ThumbsUp className="size-4" strokeWidth={2} />
-            추천 {book.recommend_count.toLocaleString()}
+            추천 {groupDigits(book.recommend_count)}
           </span>
         </div>
 

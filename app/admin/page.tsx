@@ -6,6 +6,7 @@ import { getServerAuth } from "@/lib/auth/server";
 import { isAdminEmail } from "@/lib/auth/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTopicMap, getTopics } from "@/lib/wiki/topics-db";
+import { formatDateTime } from "@/lib/community/format";
 import { canonical } from "@/lib/site";
 import { GenerateForm } from "@/components/admin/generate-form";
 import { AiSettingsForm } from "@/components/admin/ai-settings-form";
@@ -227,7 +228,7 @@ export default async function AdminPage() {
                       {job.error ?? "-"}
                     </td>
                     <td className="px-4 py-3 text-muted">
-                      {new Date(job.created_at).toLocaleString("ko-KR")}
+                      {formatDateTime(job.created_at)}
                     </td>
                   </tr>
                 ))}

@@ -12,7 +12,7 @@ import {
 } from "@/app/actions/community";
 import type { CommentItem } from "@/lib/community/types";
 import { useAuth } from "@/lib/auth/context";
-import { formatRelativeOrDate } from "@/lib/community/format";
+import { RelativeTime } from "@/components/ui/relative-time";
 import { errorText } from "@/lib/wiki/messages";
 import { Button } from "@/components/ui/button";
 import { ConfirmSubmit } from "@/components/ui/confirm-submit";
@@ -159,7 +159,7 @@ function CommentRow({
             ·
           </span>
           <span className="text-muted">
-            {formatRelativeOrDate(comment.created_at)}
+            <RelativeTime iso={comment.created_at} />
           </span>
           {edited && <span className="text-muted">(수정됨)</span>}
         </div>

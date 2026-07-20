@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ThumbsUp } from "lucide-react";
 import { toggleRecommend } from "@/app/actions/book-social";
 import { useAuth } from "@/lib/auth/context";
+import { groupDigits } from "@/lib/community/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,7 +70,7 @@ export function RecommendButton({
         strokeWidth={2.1}
         fill={recommended ? "currentColor" : "none"}
       />
-      추천 {count.toLocaleString()}
+      추천 {groupDigits(count)}
     </button>
   );
 }

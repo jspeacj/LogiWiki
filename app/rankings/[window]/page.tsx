@@ -12,6 +12,7 @@ import {
 } from "@/lib/wiki/rankings";
 import { getTopicsWithBooks } from "@/lib/wiki/queries";
 import { getTopicMap } from "@/lib/wiki/topics-db";
+import { groupDigits } from "@/lib/community/format";
 import { canonical, NOINDEX } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -236,7 +237,7 @@ export default async function RankingsPage({
                       )}
                     >
                       <Eye className="size-3.5" strokeWidth={2} />
-                      조회 {book.window_views.toLocaleString()}
+                      조회 {groupDigits(book.window_views)}
                     </span>
                     <span
                       className={cn(
@@ -247,12 +248,12 @@ export default async function RankingsPage({
                       )}
                     >
                       <ThumbsUp className="size-3.5" strokeWidth={2} />
-                      추천 {book.recommend_count.toLocaleString()}
+                      추천 {groupDigits(book.recommend_count)}
                     </span>
                     {sort === "score" && (
                       <span className="inline-flex items-center gap-1 font-semibold text-foreground">
                         <Trophy className="size-3.5" strokeWidth={2} />
-                        {book.score.toLocaleString()}점
+                        {groupDigits(book.score)}점
                       </span>
                     )}
                   </div>
