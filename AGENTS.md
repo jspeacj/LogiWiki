@@ -96,6 +96,18 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 - cron 엔드포인트는 운영에서 `CRON_SECRET` 없으면 **401**(fail-closed).
 - cron/AI 는 service-role 클라(유저세션 없음). `ANTHROPIC_API_KEY`/`SUPABASE_SERVICE_ROLE_KEY` 는 절대 `NEXT_PUBLIC_` 아님.
 - **Admin SSOT**: `lib/auth/admin.ts::ADMIN_EMAIL` == DB `public.is_admin()` 이메일. 반드시 동기화.
+- **CSP**(next.config): `frame-ancestors`·`object-src`·`base-uri`·`form-action`. `script-src`(nonce)는 **일부러 뺐다** — 챕터 `dangerouslySetInnerHTML` 은 `sanitize-html`(태그·스킴·스타일 allowlist)이 막고, nonce 도입은 nonce 없는 스크립트(테마 init·Next 부트스트랩·**허브 연결 후 AdSense**)를 차단해 사이트·광고를 깨뜨릴 위험이 크다(2026-07-21 보류). 재개 시 AdSense nonce 조율을 먼저 검증할 것.
+- 뷰어 해시 솔트는 전용 `VIEW_HASH_SALT`(없으면 service-role 키 폴백). 로테이션 민감 비밀과 dedup 을 분리한다.
+
+## 하이드레이션: 날짜·시각·숫자를 런타임 로케일로 렌더하지 않는다 (함정 K)
+
+`Intl.DateTimeFormat`·`RelativeTimeFormat`·`toLocaleString` 은 런타임의 ICU·타임존에 따라 다른 문자열을 낸다. **Vercel 서버(UTC)와 한국 클라이언트(KST)가 같은 시각을 다르게 렌더 → React #418 하이드레이션 미스매치.** 게시판·서적 카드·댓글의 client 컴포넌트 전반에서 났다(2026-07-21 수정). 위키/커뮤니티라 날짜 표시가 많아 특히 자주 밟는다.
+
+- 날짜·시각은 `lib/community/format.ts` 의 **KST 직접 포맷**(`formatDate`·`formatDateTime`)을 쓴다. `getUTC*` 에 9시간을 더하는 고정 UTC+9(DST 없음)라 실행 타임존과 무관하게 결정론적. `Intl`·`toLocaleString` 금지.
+- 천 단위 구분기호는 `groupDigits()`(직접). `toLocaleString()` 금지.
+- **상대시간("3분 전")은 `<RelativeTime iso>`(`components/ui/relative-time.tsx`)로만.** 렌더 중 `Date.now()` 를 부르지 않는다 — 마운트 전엔 결정론적 절대 날짜(서버=클라 일치), 마운트 후에만 상대시간. 순수 함수는 `now` 를 인자로 받는다(`formatRelativeOrDate(iso, nowMs)`).
+- Server Component 는 서버 1회 렌더라 하이드레이션은 안 나지만, 그래도 KST 직접 포맷을 써야 UTC 로 표시되는 정확성 문제를 피한다.
+- 검증: 포맷 함수는 `TZ=UTC` 와 `TZ=Asia/Seoul` 에서 출력이 **같아야** 한다(결정론 = 하이드레이션 안전). 형제 zone(/time)이 전 페이지 #418 로 재작업한 그 함정이다.
 
 ## proxy 는 모든 네비게이션의 고정 비용이다 (`lib/supabase/proxy.ts`)
 
