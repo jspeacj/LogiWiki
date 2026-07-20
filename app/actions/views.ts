@@ -32,7 +32,10 @@ async function viewerHash(): Promise<string> {
   const ip = await clientIp();
   const ua = h.get("user-agent") ?? "";
   const day = new Date().toISOString().slice(0, 10);
-  const salt = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+  // 솔트는 예측 불가능성 + rainbow table 방지가 목적이다. 전용 VIEW_HASH_SALT 가 있으면 쓰고,
+  // 없으면 SERVICE_ROLE_KEY 로 폴백한다 — 후자는 로테이션 민감 비밀이라(교체하면 그날 dedup 이
+  // 리셋된다) 전용 솔트를 Vercel env 에 두는 편이 깔끔하다. 둘 다 서버 전용이라 유출 위험은 없다.
+  const salt = process.env.VIEW_HASH_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   return createHash("sha256").update(`${day}:${ip}:${ua}:${salt}`).digest("hex").slice(0, 32);
 }
 
