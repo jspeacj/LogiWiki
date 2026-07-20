@@ -65,6 +65,11 @@ const nextConfig: NextConfig = {
             value: "camera=(), microphone=(), geolocation=(), payment=()",
           },
           {
+            // script-src(nonce) 는 일부러 넣지 않았다. 챕터 본문은 dangerouslySetInnerHTML 이지만
+            // sanitize-html(태그·스킴·스타일 allowlist)이 타이트해 즉시 익스플로잇 경로가 없다.
+            // nonce script-src 를 도입하면 nonce 없는 모든 스크립트(테마 init·Next 부트스트랩·허브
+            // 연결 후 AdSense)가 차단돼 사이트·광고가 깨질 위험이 크다 — 2층 방어의 이득보다 프로덕션
+            // 리스크가 커 보류했다(2026-07-21 사용자 확인). 재개 시 AdSense nonce 조율을 먼저 검증할 것.
             key: "Content-Security-Policy",
             value: [
               "frame-ancestors 'none'", // X-Frame-Options 의 현대적 대체
