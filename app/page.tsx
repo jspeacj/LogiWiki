@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BadgeCheck, BookOpen, PenLine } from "lucide-react";
+import { canonical, siteConfig, OG_IMAGES } from "@/lib/site";
 import { listBooks } from "@/lib/wiki/queries";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
 import { TopicGrid } from "@/components/wiki/topic-grid";
@@ -16,6 +18,23 @@ import { TopicGrid } from "@/components/wiki/topic-grid";
  * 두고 저쪽이 300 이면 홈은 60초마다 재렌더되면서도 5분 묵은 카운터를 받는다(위 "1분" 이 거짓이 된다).
  */
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  alternates: { canonical: canonical() },
+  openGraph: {
+    type: "website",
+    url: siteConfig.url,
+    title: siteConfig.ogTitle,
+    description: siteConfig.description,
+    images: [...OG_IMAGES],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.ogTitle,
+    description: siteConfig.description,
+    images: [...OG_IMAGES],
+  },
+};
 
 export default async function HomePage() {
   const [popular, recent] = await Promise.all([
