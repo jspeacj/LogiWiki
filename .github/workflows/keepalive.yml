@@ -20,8 +20,10 @@ name: keepalive (스케줄 워크플로 자동 비활성 방지)
 
 on:
   schedule:
-    # UTC 03:00 매주 월요일. daily-book(21:00)·daily-quiz(22:00) 와 시간대가 겹치지 않는다.
-    - cron: "0 3 * * 1"
+    # UTC 월 21:00 (= KST 화 06:00). daily-book(UTC 03:00)·daily-quiz(UTC 04:00) 와
+    # 시간대가 겹치지 않는다 — 생성기가 점심(KST 12:00/13:00)으로 옮겨 가면서
+    # 예전 keepalive 슬롯(UTC 03:00)이 서적 생성과 충돌하게 되어 이쪽을 비웠다.
+    - cron: "0 21 * * 1"
   workflow_dispatch: # 수동 점검/강제 실행용
 
 concurrency:

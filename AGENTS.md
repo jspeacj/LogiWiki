@@ -181,7 +181,7 @@ basePath는 `next/link`·`next/router`·`_next` 자산에만 자동 적용된다
 **실제로 돌아가는 경로는 이것이다.** `.github/workflows/daily-book.yml` 이 매일 1권을 만든다.
 
 ```
-cron(KST 06:00)
+cron(KST 12:00)
   → scripts/ai/fetch-context.mjs   기존 토픽·서적 → .ai/context.json  (DB 는 스크립트만 접근)
   → anthropics/claude-code-action  집필 → .ai/book.json  (Max 구독 토큰으로 인증)
   → scripts/ai/insert-book.mjs     엄격 검증 → Supabase 에 status='draft' 삽입
@@ -193,7 +193,17 @@ cron(KST 06:00)
 - 검증 실패(챕터 400자 미만, slug 중복 등) 시 **아무 것도 삽입하지 않고** 워크플로를 실패시킨다. 챕터 삽입이 실패하면 서적도 롤백한다(반쪽짜리 초안 방지).
 - 필요한 GitHub Secrets: `CLAUDE_CODE_OAUTH_TOKEN`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
-### 매일 퀴즈 생성 (`daily-quiz.yml`, KST 07:00)
+### 실행 시각은 구독 사용량 윈도에 맞춰 정한다 (KST 12:00 / 13:00)
+
+Claude 구독 사용량은 **첫 사용 시각부터 5시간 롤링 윈도**로 집계된다. 이 워크플로들이 그날의 첫 사용이 되므로 **cron 시각 = 윈도 시작 시각**이다.
+
+- 예전(서적 06:00 / 퀴즈 07:00)은 윈도가 06:00~11:00 이라 **사람이 작업하는 낮 시간대를 생성기와 나눠 쓰는** 구조였다.
+- 지금은 서적 **KST 12:00**(UTC 03:00) / 퀴즈 **KST 13:00**(UTC 04:00) — 윈도가 12:00~17:00 이 되어 **오후 5시쯤 한도가 리셋**되고, 저녁 작업은 새 윈도에서 시작한다.
+- 둘은 **같은 윈도 안에 있어야 한다.** 퀴즈만 다른 시간대로 떼어 놓으면 하루에 윈도를 두 번 여는 셈이 된다.
+- ⚠️ GitHub schedule 은 정시 보장이 아니다(혼잡 시 지연). 윈도 시작도 그만큼 밀리므로 리셋은 "오후 5시 전후"다.
+- `keepalive.yml` 은 이 두 슬롯을 피해 **UTC 월 21:00(= KST 화 06:00)** 로 옮겼다(예전 UTC 03:00 은 이제 서적 생성과 충돌).
+
+### 매일 퀴즈 생성 (`daily-quiz.yml`, KST 13:00)
 
 같은 구조로 **객관식 퀴즈**를 만든다. 랜덤 토픽 3개 × 2문항 = 6문항.
 
