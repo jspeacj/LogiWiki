@@ -21,7 +21,6 @@ import {
   type ReactNode,
 } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
 import { isAdminEmail } from "@/lib/auth/admin";
 import type { ProfileRef } from "@/lib/auth/types";
 
@@ -39,18 +38,44 @@ type AuthValue = {
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // 클라이언트는 컴포넌트 생애주기 동안 한 번만 생성(lazy initializer).
-  // env 미설정 시 createClient 가 throw → null 로 두고 로그아웃 상태로 동작.
-  const [supabase] = useState<SupabaseClient | null>(() => {
-    try {
-      return createClient();
-    } catch {
-      return null;
-    }
-  });
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRef | null>(null);
   const [loading, setLoading] = useState(true);
+
+  /**
+   * Supabase 클라이언트를 **첫 화면 번들에서 빼내** 마운트 후에 받아온다.
+   *
+   * 왜: 이 Provider 는 루트 레이아웃에 있어 모든 페이지가 거친다. 정적 import 였을 때
+   * supabase-js 가 첫 화면 청크에 들어가 **56KB**를 차지했고, 그 안에는 이 앱이 쓰지 않는
+   * realtime-js 까지 포함돼 있었다(supabase-js v2 가 무조건 끌고 온다). 서적·챕터 열람은
+   * 로그인 없이 되는 게 기본이라 대부분의 방문이 이 비용을 헛되이 냈다.
+   *
+   * 지연 로딩이 안전한 이유: 이 컨텍스트는 **표시용**이다(헤더 로그인 UI·작성 폼 분기).
+   * 실제 쓰기 권한은 서버 액션 + RLS 가 강제하므로 세션이 조금 늦게 반영돼도 보안 경계와
+   * 무관하다. 원래도 `loading: true` 로 시작해 세션을 비동기로 읽었으므로 초기 렌더 계약도 같다.
+   *
+   * env 미설정이면 import 는 되지만 createClient 가 throw → 로그아웃 상태로 degrade.
+   */
+  useEffect(() => {
+    let active = true;
+    void import("@/lib/supabase/client")
+      .then(({ createClient }) => {
+        if (!active) return;
+        try {
+          setSupabase(createClient());
+        } catch {
+          setSupabase(null);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const loadProfile = useCallback(
     async (uid: string | undefined) => {
@@ -69,11 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!supabase) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoading(false);
-      return;
-    }
+    // 아직 클라이언트를 받아오는 중이면 아무것도 하지 않는다 — loading 을 여기서 끄면
+    // "로딩 중" 과 "사용 불가(env 미설정)" 가 구분되지 않아 헤더가 잠깐 로그아웃으로 깜빡인다.
+    if (!supabase) return;
     let active = true;
 
     // 표시용 초기 상태는 getSession()으로 로컬(쿠키/스토리지)에서 즉시 읽는다.
