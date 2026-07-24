@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ORIGIN, BASE_PATH, siteConfig } from "@/lib/site";
+import { ORIGIN, BASE_PATH, siteConfig, OG_IMAGES } from "@/lib/site";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/context";
 
 /**
@@ -24,8 +24,8 @@ import { THEME_INIT_SCRIPT } from "@/lib/theme/context";
  * ⚠️ 내부 링크는 `/wiki/...` 로 적는다 — next/link 를 쓰지 않으므로 basePath 자동 적용이 없다
  * (basePath 규칙 3). 허브 페이지는 basePath 밖이라 절대 URL 이어야 한다.
  *
- * ⚠️ OG 이미지는 지정하지 않는다 — 이 zone 은 `opengraph-image` 를 두지 않는 것이 규약이라
- * (MIGRATION.md 함정 F 의 예외 항목) 지정할 대상이 없다. noindex 페이지라 영향도 없다.
+ * ⚠️ OG 이미지는 **명시 지정**한다. metadataBase 가 origin 이라 파일 규약(`opengraph-image.tsx`)은
+ * basePath 없이 허브 카드로 해석된다(함정 F). noindex 라도 공유되면 그대로 뜬다.
  */
 
 const geistSans = Geist({
@@ -50,6 +50,8 @@ export const metadata: Metadata = {
   description: "요청하신 주소에 해당하는 페이지가 없습니다.",
   // 404 는 어떤 상황에서도 색인 대상이 아니다(NEXT_PUBLIC_NOINDEX 와 무관하게 고정).
   robots: { index: false, follow: false },
+  openGraph: { images: [...OG_IMAGES] },
+  twitter: { card: "summary_large_image", images: [...OG_IMAGES] },
 };
 
 const LINKS = [

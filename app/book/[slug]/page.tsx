@@ -7,7 +7,7 @@ import { getBookBySlug } from "@/lib/wiki/queries";
 import { getBookComments } from "@/lib/wiki/social";
 import { formatDateTime, groupDigits } from "@/lib/community/format";
 import { RelativeTime } from "@/components/ui/relative-time";
-import { canonical, NOINDEX, NOT_FOUND_METADATA, siteConfig } from "@/lib/site";
+import { canonical, NOINDEX, NOT_FOUND_METADATA, OG_IMAGES, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { BookInteractions } from "@/components/wiki/book-interactions";
@@ -41,16 +41,28 @@ export async function generateMetadata({
   if (!book) return { title: "서적을 찾을 수 없습니다", ...NOT_FOUND_METADATA };
 
   const indexable = !NOINDEX && book.status === "published";
+  const description = book.description || `${book.topic_label} 학습 서적 — ${book.title}`;
+  const url = `${siteConfig.origin}${canonical(`book/${book.slug}`)}`;
   return {
     title: book.title,
-    description: book.description || `${book.topic_label} 학습 서적 — ${book.title}`,
+    description,
     alternates: { canonical: canonical(`book/${book.slug}`) },
     robots: indexable ? undefined : { index: false, follow: false },
+    // openGraph·twitter 를 둘 다 열고 url·title·description·images 를 전부 명시한다.
+    // 하나만 열면 나머지가 루트를 상속해 홈 정보가 남고(함정 N), images 를 빠뜨리면
+    // 루트의 이미지가 통째로 사라진다(함정 F).
     openGraph: {
       type: "article",
       title: book.title,
-      description: book.description,
-      url: `${siteConfig.origin}${canonical(`book/${book.slug}`)}`,
+      description,
+      url,
+      images: [...OG_IMAGES],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: book.title,
+      description,
+      images: [...OG_IMAGES],
     },
   };
 }

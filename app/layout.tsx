@@ -5,7 +5,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "@/lib/theme/context";
 import { AuthProvider } from "@/lib/auth/context";
-import { siteConfig, NOINDEX, canonical } from "@/lib/site";
+import { siteConfig, NOINDEX, canonical, OG_IMAGES } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,11 +47,13 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     title: siteConfig.ogTitle,
     description: siteConfig.description,
+    images: [...OG_IMAGES],
   },
   twitter: {
     card: "summary_large_image",
     title: siteConfig.ogTitle,
     description: siteConfig.description,
+    images: [...OG_IMAGES],
   },
   // 임시 운영 동안 색인 차단. 승인 후 NEXT_PUBLIC_NOINDEX=false 로 해제.
   robots: NOINDEX

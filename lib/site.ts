@@ -54,6 +54,28 @@ export function canonical(path = ""): string {
 }
 
 /**
+ * 소셜 미리보기 이미지 — `app/opengraph-image.tsx` 를 **명시 지정**한다.
+ *
+ * ⚠️ 파일 규약에 맡기면 안 된다. metadataBase 가 origin 이라 `opengraph-image.tsx` 는
+ * basePath 없이 `https://logikitapps.com/opengraph-image`(= **허브 카드**)로 해석된다.
+ * 그래서 여기서 `/wiki` 를 붙여 절대 경로로 고정한다.
+ *
+ * ⚠️ 그리고 metadata 는 세그먼트 간 **얕은 병합**이라, 하위 페이지가 `openGraph` 를 정의하는
+ * 순간 루트의 openGraph 가 통째로 교체돼 이미지까지 사라진다(`twitter` 도 동일 — 함정 F).
+ * 따라서 openGraph/twitter 를 여는 페이지는 이 배열을 직접 펼쳐 넣어야 한다.
+ * 반대로 **열지 않으면** 루트의 url·title 까지 상속해 홈 정보가 남는다(함정 N) — 둘 다 열고
+ * url·title·description·images 를 전부 명시할 것.
+ */
+export const OG_IMAGES = [
+  {
+    url: `${BASE_PATH}/opengraph-image`,
+    width: 1200,
+    height: 630,
+    alt: siteConfig.ogTitle,
+  },
+] as const;
+
+/**
  * 동적 라우트에서 슬러그를 못 찾았을 때의 metadata 조각 (book·chapter·topic 공용).
  *
  * ⚠️ `alternates: {}` 가 핵심이다. 생략하면 루트 레이아웃의 canonical(= `/wiki` 홈)을

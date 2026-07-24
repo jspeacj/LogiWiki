@@ -5,7 +5,7 @@ import { draftMode } from "next/headers";
 import { ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, ChevronLeft, Clock, EyeOff, User } from "lucide-react";
 import { getBookBySlug, getChapter } from "@/lib/wiki/queries";
 import { extractHeadings, renderMarkdown } from "@/lib/wiki/markdown";
-import { canonical, NOINDEX, NOT_FOUND_METADATA, siteConfig } from "@/lib/site";
+import { canonical, NOINDEX, NOT_FOUND_METADATA, OG_IMAGES, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
 import { formatDateTime } from "@/lib/community/format";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
@@ -64,16 +64,27 @@ export async function generateMetadata({
 
   const indexable = !NOINDEX && book.status === "published";
   const path = canonical(`book/${book.slug}/${chapter.slug}`);
+  const title = `${chapter.title} — ${book.title}`;
+  const description =
+    book.description || `${book.topic_label} · ${book.title} · ${chapter.title}`;
   return {
-    title: `${chapter.title} — ${book.title}`,
-    description:
-      book.description || `${book.topic_label} · ${book.title} · ${chapter.title}`,
+    title,
+    description,
     alternates: { canonical: path },
     robots: indexable ? undefined : { index: false, follow: false },
+    // openGraph·twitter 를 둘 다 열고 전부 명시한다(함정 F·N — 위 서적 페이지와 같은 이유).
     openGraph: {
       type: "article",
-      title: `${chapter.title} — ${book.title}`,
+      title,
+      description,
       url: `${siteConfig.origin}${path}`,
+      images: [...OG_IMAGES],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [...OG_IMAGES],
     },
   };
 }
