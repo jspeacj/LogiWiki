@@ -3,13 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowLeftRight,
   ArrowUpRight,
   BookOpen,
   Calculator,
   Clock,
   Fuel,
   LayoutGrid,
+  PawPrint,
   Sparkles,
+  Type,
   type LucideIcon,
 } from "lucide-react";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
@@ -28,18 +31,24 @@ import { cn } from "@/lib/utils";
 const ICONS: Record<PlatformKey, LucideIcon> = {
   hub: Sparkles,
   wiki: BookOpen,
+  conv: ArrowLeftRight,
+  text: Type,
   time: Clock,
   calc: Calculator,
   fuel: Fuel,
+  pet: PawPrint,
 };
 
 // 아이콘 강조색 — 정적 리터럴이라야 Tailwind 스캐너가 클래스를 생성한다.
 const ACCENTS: Record<PlatformKey, string> = {
   hub: "text-brand-2",
   wiki: "text-brand",
+  conv: "text-accent-cyan",
+  text: "text-accent-emerald",
   time: "text-accent-cyan",
   calc: "text-accent-emerald",
   fuel: "text-accent-amber",
+  pet: "text-brand",
 };
 
 export function AppsMenu() {

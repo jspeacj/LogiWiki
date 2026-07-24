@@ -54,6 +54,25 @@ export function canonical(path = ""): string {
 }
 
 /**
+ * 동적 라우트에서 슬러그를 못 찾았을 때의 metadata 조각 (book·chapter·topic 공용).
+ *
+ * ⚠️ `alternates: {}` 가 핵심이다. 생략하면 루트 레이아웃의 canonical(= `/wiki` 홈)을
+ * **상속**해서 없는 페이지가 홈을 정본으로 선언한다 — 메인 repo MIGRATION.md 함정 H.
+ * 2026-07-24 프로덕션 실측에서 `/wiki/book/<없는슬러그>` 가 실제로
+ * `<link rel="canonical" href="https://logikitapps.com/wiki">` 를 내보내고 있었다.
+ * metadata 는 세그먼트 간 **얕은 병합**이라, 물려받은 값을 지우려면 빈 객체로 덮어써야 한다.
+ *
+ * 역할 분담: 매칭되지 않는 경로는 `app/global-not-found.tsx` 가 처리하고(루트 레이아웃을
+ * 아예 거치지 않아 오염이 불가능하다), 여기는 **매칭된** 동적 라우트에서 대상이 없을 때다.
+ * 이 zone 은 서적이 DB 발행물이라 `generateStaticParams` 가 빈 배열 + ISR 이므로
+ * `dynamicParams = false`(함정 G)를 쓸 수 없다 — 쓰면 모든 서적이 404 가 된다.
+ */
+export const NOT_FOUND_METADATA = {
+  robots: { index: false, follow: false },
+  alternates: {},
+} as const;
+
+/**
  * 인증 redirect(OAuth·비밀번호 재설정 메일)용 런타임 베이스 URL. basePath(/wiki) 포함.
  *
  * 로컬은 `http://localhost:3000/wiki`, 운영은 정본 도메인. 환경변수로 주입한다

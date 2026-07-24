@@ -5,7 +5,7 @@ import { draftMode } from "next/headers";
 import { ArrowLeft, ArrowRight, BadgeCheck, ChevronDown, ChevronLeft, Clock, EyeOff, User } from "lucide-react";
 import { getBookBySlug, getChapter } from "@/lib/wiki/queries";
 import { extractHeadings, renderMarkdown } from "@/lib/wiki/markdown";
-import { canonical, NOINDEX, siteConfig } from "@/lib/site";
+import { canonical, NOINDEX, NOT_FOUND_METADATA, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
 import { formatDateTime } from "@/lib/community/format";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
@@ -58,9 +58,9 @@ export async function generateMetadata({
   const { slug, chapterSlug } = await params;
   const { isEnabled: preview } = await draftMode();
   const book = await getBookBySlug(slug, "ko", preview);
-  if (!book) return { title: "찾을 수 없음", robots: { index: false, follow: false } };
+  if (!book) return { title: "찾을 수 없음", ...NOT_FOUND_METADATA };
   const chapter = await getChapter(book.id, chapterSlug, preview);
-  if (!chapter) return { title: "찾을 수 없음", robots: { index: false, follow: false } };
+  if (!chapter) return { title: "찾을 수 없음", ...NOT_FOUND_METADATA };
 
   const indexable = !NOINDEX && book.status === "published";
   const path = canonical(`book/${book.slug}/${chapter.slug}`);

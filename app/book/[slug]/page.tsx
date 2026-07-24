@@ -7,7 +7,7 @@ import { getBookBySlug } from "@/lib/wiki/queries";
 import { getBookComments } from "@/lib/wiki/social";
 import { formatDateTime, groupDigits } from "@/lib/community/format";
 import { RelativeTime } from "@/components/ui/relative-time";
-import { canonical, NOINDEX, siteConfig } from "@/lib/site";
+import { canonical, NOINDEX, NOT_FOUND_METADATA, siteConfig } from "@/lib/site";
 import { EDITOR_NAME } from "@/lib/editorial";
 import { BookToc, flattenChapters } from "@/components/wiki/book-toc";
 import { BookInteractions } from "@/components/wiki/book-interactions";
@@ -38,7 +38,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const { isEnabled: preview } = await draftMode();
   const book = await getBookBySlug(slug, "ko", preview);
-  if (!book) return { title: "서적을 찾을 수 없습니다", robots: { index: false, follow: false } };
+  if (!book) return { title: "서적을 찾을 수 없습니다", ...NOT_FOUND_METADATA };
 
   const indexable = !NOINDEX && book.status === "published";
   return {

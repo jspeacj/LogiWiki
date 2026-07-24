@@ -10,9 +10,18 @@ const nextConfig: NextConfig = {
   // shiki 는 문법/테마를 동적 import 로 로드하므로 번들링에서 제외한다(외부 모듈로 로드).
   serverExternalPackages: ["shiki"],
 
-  // 서버 액션(서적·게시글·댓글 작성 등)은 멀티존 정본 도메인에서 호출된다.
-  // basePath rewrite 환경에서 Origin 검증을 통과시키려면 허용 오리진을 명시한다.
+  /**
+   * 404 를 `app/global-not-found.tsx` 가 처리한다 (메인 repo MIGRATION.md 함정 H).
+   *
+   * 없으면 Next 기본 404 가 루트 레이아웃 안에서 렌더돼, 없는 URL 이 `/wiki` 를 canonical 로
+   * 선언하고 robots 가 noindex·index,follow 로 충돌하며 홈의 WebSite JSON-LD·og:url 이 실린다.
+   * not-found.tsx 로는 못 고친다 — metadata 를 export 할 수 없기 때문(Next 문서).
+   * (not-found.tsx 는 세그먼트 안의 notFound() UI 로 계속 쓰인다)
+   */
   experimental: {
+    globalNotFound: true,
+    // 서버 액션(서적·게시글·댓글 작성 등)은 멀티존 정본 도메인에서 호출된다.
+    // basePath rewrite 환경에서 Origin 검증을 통과시키려면 허용 오리진을 명시한다.
     serverActions: {
       allowedOrigins: ["logikitapps.com", "wiki.logikitapps.com"],
     },

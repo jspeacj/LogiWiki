@@ -4,7 +4,7 @@ import { getTopicBySlug } from "@/lib/wiki/topics-db";
 import { countPublishedBooksByTopic, listBooks } from "@/lib/wiki/queries";
 import { parseBookSort } from "@/lib/wiki/types";
 import { normalizePage, normalizePageSize, totalPagesOf } from "@/lib/pagination";
-import { canonical, NOINDEX } from "@/lib/site";
+import { canonical, NOINDEX, NOT_FOUND_METADATA } from "@/lib/site";
 import { BookCard, BookEmptyState } from "@/components/wiki/book-card";
 import { BookListControls } from "@/components/wiki/book-list-controls";
 import { TopicGrid } from "@/components/wiki/topic-grid";
@@ -22,7 +22,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { topic } = await params;
   const meta = await getTopicBySlug(topic);
-  if (!meta) return { title: "토픽을 찾을 수 없습니다", robots: { index: false, follow: false } };
+  if (!meta) return { title: "토픽을 찾을 수 없습니다", ...NOT_FOUND_METADATA };
 
   // 발행 서적이 없는 토픽은 색인하지 않는다. 토픽 행은 AI 가 새 분야를 다루면 먼저 생기고
   // 서적은 검수 후에야 발행되므로, 빈 토픽 페이지는 비정상이 아니라 **정상 상태**다.

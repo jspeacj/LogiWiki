@@ -9,7 +9,7 @@
 
 import { ORIGIN } from "./site";
 
-export type PlatformKey = "hub" | "wiki" | "time" | "calc" | "fuel";
+export type PlatformKey = "hub" | "wiki" | "conv" | "text" | "time" | "calc" | "fuel" | "pet";
 
 export interface Platform {
   key: PlatformKey;
@@ -28,7 +28,12 @@ export const PLATFORMS: Platform[] = [
   // ⚠️ 공개 문구에 생성 방식(AI 등)을 넣지 말 것 — 이 desc 는 헤더 앱 런처와 푸터를 통해
   // **모든 페이지**에 렌더된다(AGENTS.md: 공개 화면에 "AI" 를 노출하지 않는다).
   { key: "wiki", name: "LogiWiki", desc: "IT 학습 서적 & 코딩 퀴즈", href: "/", current: true },
+  { key: "conv", name: "Converter", desc: "단위·포맷 변환기 모음", href: `${ORIGIN}/conv`, external: true },
+  { key: "text", name: "TextKit", desc: "텍스트 처리 도구 모음", href: `${ORIGIN}/text`, external: true },
   { key: "time", name: "Timezone Scheduler", desc: "글로벌 시차·회의시간 조율", href: `${ORIGIN}/time`, external: true },
   { key: "calc", name: "Calculator Hub", desc: "다양한 계산기 모음", href: `${ORIGIN}/calc`, external: true },
-  { key: "fuel", name: "Fuel Tracker", desc: "실시간 유가 트래커", href: `${ORIGIN}/fuel`, external: true },
+  // 형제 zone 문구는 실제 기능과 맞춘다 — 유가는 "실시간" 이 아니라 일 단위 고시/스냅샷이다
+  // (허브 카드가 같은 이유로 교정된 적이 있다).
+  { key: "fuel", name: "Fuel Tracker", desc: "전국·해외 유가 트래커", href: `${ORIGIN}/fuel`, external: true },
+  { key: "pet", name: "PawLog", desc: "반려동물 계산기 & 품종 가이드", href: `${ORIGIN}/pet`, external: true },
 ];
